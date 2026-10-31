@@ -3,21 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบปฏิทินการปฏิบัติงาน (Real-time)</title>
+<title>ระบบปฏิทินการปฏิบัติงาน (Firebase Firestore Real-time)</title>
 
-<!-- Fonts -->
+<!-- Fonts: Google Sarabun -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-<!-- Firebase App & Services (Compat SDK v10 สำหรับรันบน Browser ได้ทันที) -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
 <style>
 /* =========================================================
-   RESET & VARIABLES
+   RESET & CSS VARIABLES
    ========================================================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 15px; }
@@ -358,7 +353,6 @@ body {
 .btn-danger { background: var(--hol); color: #fff; }
 .btn-danger:hover { filter: brightness(1.08); }
 .btn-success { background: var(--teach); color: #fff; }
-.btn-success:hover { filter: brightness(1.08); }
 .btn-sm { padding: 5px 12px; font-size: 0.82rem; }
 
 /* =========================================================
@@ -609,7 +603,7 @@ body {
 .status-pill-btn.active.done  { background: var(--done); color: #fff; }
 
 /* =========================================================
-   MODAL & CONCURRENT WARNING
+   MODAL
    ========================================================= */
 .modal-overlay {
   position: fixed;
@@ -661,25 +655,6 @@ body {
   border-radius: 4px;
 }
 .close-btn:hover { background: var(--surface2); color: var(--text); }
-
-.concurrent-warning-banner {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #b45309;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 14px;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  animation: fadeIn .2s;
-}
-[data-theme="dark"] .concurrent-warning-banner {
-  background: #451a03;
-  border-color: #78350f;
-  color: #fef3c7;
-}
 
 .form-group { margin-bottom: 14px; }
 .form-label {
@@ -866,7 +841,22 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .login-title { font-size: 1.35rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
 .login-subtitle { font-size: 0.88rem; color: var(--text2); margin-bottom: 24px; }
-.login-field { margin-bottom: 16px; text-align: left; }
+.login-warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  text-align: left;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+[data-theme="dark"] .login-warning-box {
+  background: #450a0a;
+  border-color: #7f1d1d;
+  color: #fecaca;
+}
 
 /* =========================================================
    TOAST & LOADING
@@ -972,41 +962,24 @@ textarea.form-control { resize: vertical; min-height: 80px; }
      ========================================================= -->
 <div id="login-screen">
   <div class="login-box">
-    <!-- Config gear button directly on Login Screen -->
-    <button class="header-btn" onclick="App.openConfigModal()" title="ตั้งค่าการเชื่อมต่อ (Firebase & Google Sheets)" style="position:absolute;top:16px;right:16px">⚙️</button>
-
-    <div class="login-logo">⚡</div>
+    <div class="login-logo">🔥</div>
     <div class="login-title">ระบบปฏิทินการปฏิบัติงาน</div>
-    <div class="login-subtitle">ระบบเรียลไทม์ทุกเครื่อง (Firestore + Google Sheets)</div>
+    <div class="login-subtitle">Firebase Firestore Real-time Cloud</div>
+
+    <!-- Banner แจ้งเตือนกรณีที่ยังไม่ได้กรอก firebase-config.js -->
+    <div id="cfg-warning-box" class="login-warning-box" style="display:none">
+      <strong>⚠️ ยังไม่ได้ตั้งค่า Firebase:</strong><br>
+      กรุณาเปิดไฟล์ <code>firebase-config.js</code> แล้วนำค่า configuration จาก Firebase Console มาวาง เพื่อเชื่อมต่อฐานข้อมูลแบบเรียลไทม์
+    </div>
 
     <!-- Firebase Google Sign In Button -->
-    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:0.95rem;margin-bottom:14px" onclick="App.loginGoogle()">
+    <button class="btn btn-primary" id="btn-google-login" style="width:100%;padding:12px;font-size:0.95rem;margin-bottom:14px">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
       เข้าสู่ระบบด้วย Google Account
     </button>
 
-    <div style="display:flex;align-items:center;margin:16px 0;gap:10px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:0.75rem;color:var(--text3)">หรือเลือกบทบาททดสอบ (Demo Sandbox)</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-    </div>
-
-    <div class="login-field">
-      <select class="form-control" id="demo-user-select" onchange="App.onDemoUserChange()">
-        <option value="admin@school.ac.th">👑 ผู้ดูแลระบบ (admin) - แผนก IT</option>
-        <option value="head.it@school.ac.th">👔 หัวหน้าฝ่าย IT (head) - แผนก IT</option>
-        <option value="head.hr@school.ac.th">👔 หัวหน้าฝ่าย HR (head) - แผนก HR</option>
-        <option value="staff1@school.ac.th">🧑‍💻 นายสมชาย ใจดี (staff) - เจ้าหน้าที่ IT</option>
-        <option value="staff2@school.ac.th">👩‍💼 นางสมหญิง รักดี (staff) - เจ้าหน้าที่ HR</option>
-      </select>
-    </div>
-
-    <button class="btn btn-secondary" style="width:100%" onclick="App.loginDemo()">
-      🚀 เข้าสู่ระบบทันที (ผู้ดูแลระบบ)
-    </button>
-
-    <div style="margin-top:16px;font-size:0.75rem;color:var(--text3);line-height:1.4">
-      💡 ระบบเชื่อมต่อ Real-time ทุกเครื่องพร้อมกันอัตโนมัติ (เปิด 2 หน้าต่างเทียบได้ทันที)
+    <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">
+      เมื่อเข้าสู่ระบบ ทุกเครื่องและทุกเบราว์เซอร์จะเชื่อมต่อฐานข้อมูล Firestore เดียวกันแบบ Real-time ทันที
     </div>
   </div>
 </div>
@@ -1017,7 +990,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <div id="app" style="display:none">
   <!-- Header -->
   <header id="header">
-    <button class="header-btn" onclick="App.toggleSidebar()" title="เปิด/ปิดเมนู">☰</button>
+    <button class="header-btn" id="btn-toggle-sidebar" title="เปิด/ปิดเมนู">☰</button>
     <div class="brand-area">
       <div class="brand-title-wrap">
         <span>📅</span>
@@ -1025,7 +998,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </div>
       <!-- Connection Status indicator -->
       <span class="status-pill realtime" id="connection-status-pill">
-        <span id="conn-dot">🟢</span> <span id="conn-text">เรียลไทม์</span>
+        <span id="conn-dot">🟢</span> <span id="conn-text">เชื่อมต่อฐานข้อมูลแล้ว</span>
       </span>
     </div>
 
@@ -1041,19 +1014,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         </div>
       </div>
 
-      <!-- Settings / Config Modal -->
-      <button class="header-btn" onclick="App.openConfigModal()" title="ตั้งค่า Firebase & Google Sheets">⚙️</button>
-
       <!-- Dark Mode Toggle -->
-      <button class="header-btn" id="dark-btn" onclick="App.toggleDark()" title="เปลี่ยนโหมด มืด/สว่าง">🌙</button>
+      <button class="header-btn" id="dark-btn" title="เปลี่ยนโหมด มืด/สว่าง">🌙</button>
 
       <!-- Notification Bell -->
-      <button class="header-btn" id="notif-btn" onclick="App.toggleNotifications()" title="การแจ้งเตือนงาน">
+      <button class="header-btn" id="notif-btn" title="การแจ้งเตือนงาน">
         🔔<span class="badge" id="notif-badge" style="display:none">0</span>
       </button>
 
       <!-- Logout -->
-      <button class="header-btn" onclick="App.logout()" title="ออกจากระบบ">🚪</button>
+      <button class="header-btn" id="btn-logout" title="ออกจากระบบ">🚪</button>
     </div>
   </header>
 
@@ -1061,28 +1031,28 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <!-- Sidebar -->
     <nav id="sidebar">
       <div class="nav-section-title">เมนูการทำงาน</div>
-      <div class="nav-item active" onclick="App.navigate('calendar')" data-page="calendar">
+      <div class="nav-item active" data-nav="calendar">
         <span class="nav-icon">📆</span>ปฏิทินงาน
       </div>
-      <div class="nav-item" onclick="App.navigate('dashboard')" data-page="dashboard">
+      <div class="nav-item" data-nav="dashboard">
         <span class="nav-icon">📊</span>แดชบอร์ดสรุป
       </div>
 
       <div id="admin-menu-section" style="display:none">
         <div class="nav-section-title" style="margin-top:12px">ระบบผู้ดูแล (Admin)</div>
-        <div class="nav-item" onclick="App.navigate('users')" data-page="users" id="nav-users">
+        <div class="nav-item" data-nav="users">
           <span class="nav-icon">👥</span>จัดการผู้ใช้
         </div>
-        <div class="nav-item" onclick="App.navigate('holidays')" data-page="holidays" id="nav-holidays">
+        <div class="nav-item" data-nav="holidays">
           <span class="nav-icon">🎌</span>จัดการวันหยุด
         </div>
-        <div class="nav-item" onclick="App.importFromGoogleSheets()">
+        <div class="nav-item" id="nav-import-sheets" style="display:none">
           <span class="nav-icon">📥</span>นำเข้าจากชีต
         </div>
       </div>
 
       <div style="margin-top:auto;padding:16px 20px;font-size:0.75rem;color:var(--text3);border-top:1px solid var(--border)">
-        <div>ฐานข้อมูล: <strong id="db-type-label">เรียลไทม์ (Real-time Sync)</strong></div>
+        <div>ฐานข้อมูล: <strong id="db-type-label">Firebase Firestore</strong></div>
         <div style="margin-top:2px">ปี พ.ศ. ภาษาไทย 100%</div>
       </div>
     </nav>
@@ -1092,21 +1062,21 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       <!-- Filter Bar (Calendar) -->
       <div id="filter-bar">
         <div class="view-tabs">
-          <button class="view-tab active" onclick="App.setView('month')">เดือน</button>
-          <button class="view-tab" onclick="App.setView('week')">สัปดาห์</button>
-          <button class="view-tab" onclick="App.setView('day')">วัน</button>
+          <button class="view-tab active" data-view="month">เดือน</button>
+          <button class="view-tab" data-view="week">สัปดาห์</button>
+          <button class="view-tab" data-view="day">วัน</button>
         </div>
 
-        <button class="btn btn-secondary btn-sm" onclick="App.goToday()">วันนี้</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.navPrev()">‹</button>
+        <button class="btn btn-secondary btn-sm" id="btn-today">วันนี้</button>
+        <button class="btn btn-secondary btn-sm" id="btn-nav-prev">‹</button>
         <span id="date-display"></span>
-        <button class="btn btn-secondary btn-sm" onclick="App.navNext()">›</button>
+        <button class="btn btn-secondary btn-sm" id="btn-nav-next">›</button>
 
-        <select class="filter-select" id="f-assignee" onchange="App.applyFilter()">
+        <select class="filter-select" id="f-assignee">
           <option value="">ทุกคน</option>
         </select>
 
-        <select class="filter-select" id="f-type" onchange="App.applyFilter()">
+        <select class="filter-select" id="f-type">
           <option value="">ทุกประเภท</option>
           <option value="teach">🟢 สอน/อบรม</option>
           <option value="meet">🔵 ประชุม</option>
@@ -1115,7 +1085,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           <option value="other">🟣 อื่นๆ</option>
         </select>
 
-        <select class="filter-select" id="f-status" onchange="App.applyFilter()">
+        <select class="filter-select" id="f-status">
           <option value="">ทุกสถานะ</option>
           <option value="todo">รอดำเนินการ</option>
           <option value="doing">กำลังดำเนินการ</option>
@@ -1123,7 +1093,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         </select>
 
         <div style="margin-left:auto;display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" onclick="App.openEventModal(null, null)">
+          <button class="btn btn-primary btn-sm" id="btn-open-create-event">
             ➕ เพิ่มงาน
           </button>
         </div>
@@ -1144,26 +1114,48 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <!-- Loading Overlay -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div id="loading-text">กำลังโหลดข้อมูล...</div>
+  <div id="loading-text">กำลังเชื่อมต่อฐานข้อมูล...</div>
 </div>
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
 
 <!-- =========================================================
-     JAVASCRIPT APPLICATION CORE (FIREBASE + REALTIME BROADCAST)
+     FIREBASE JS SDK v10 (MODULAR VIA CDN) & APPLICATION CORE
      ========================================================= -->
-<script>
-// Mock default data (fallback cache)
-const DEFAULT_USERS = [
-  { email: 'admin@school.ac.th',   name: 'ผู้ดูแลระบบ',    department: 'IT', role: 'admin', photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' },
-  { email: 'head.it@school.ac.th', name: 'หัวหน้าฝ่าย IT', department: 'IT', role: 'head',  photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' },
-  { email: 'head.hr@school.ac.th', name: 'หัวหน้าฝ่าย HR', department: 'HR', role: 'head',  photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' },
-  { email: 'staff1@school.ac.th',  name: 'นายสมชาย ใจดี',  department: 'IT', role: 'staff', photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' },
-  { email: 'staff2@school.ac.th',  name: 'นางสมหญิง รักดี', department: 'HR', role: 'staff', photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' }
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { firebaseConfig, googleSheetsApiUrl } from "./firebase-config.js";
+
+// Sample Data Initial Seeds (ใส่เมื่อ collection events ว่างเท่านั้น)
+const SEED_USERS = [
+  { email: 'admin@school.ac.th',   name: 'ผู้ดูแลระบบ',    department: 'IT', role: 'admin' },
+  { email: 'head.it@school.ac.th', name: 'หัวหน้าฝ่าย IT', department: 'IT', role: 'head'  },
+  { email: 'head.hr@school.ac.th', name: 'หัวหน้าฝ่าย HR', department: 'HR', role: 'head'  },
+  { email: 'staff1@school.ac.th',  name: 'นายสมชาย ใจดี',  department: 'IT', role: 'staff' },
+  { email: 'staff2@school.ac.th',  name: 'นางสมหญิง รักดี', department: 'HR', role: 'staff' }
 ];
 
-const DEFAULT_HOLIDAYS = [
+const SEED_HOLIDAYS = [
   { date: '2025-01-01', name: 'วันขึ้นปีใหม่',                           type: 'public' },
   { date: '2025-02-12', name: 'วันมาฆบูชา',                               type: 'public' },
   { date: '2025-04-06', name: 'วันจักรี',                                 type: 'public' },
@@ -1185,21 +1177,21 @@ const DEFAULT_HOLIDAYS = [
   { date: '2025-12-31', name: 'วันสิ้นปี',                                type: 'public' }
 ];
 
-const DEFAULT_EVENTS = [
-  { id: 'ev-1', title: 'ประชุมวางแผนโครงการประจำปี 2568',         type: 'meet',  status: 'done',  assignee: 'head.it@school.ac.th', start: '2025-01-10', end: '2025-01-10', startTime: '09:00', endTime: '12:00', location: 'ห้องประชุม 1',     detail: 'ประชุมวางแผนงานประจำปีงบประมาณ 2568', updatedAt: '2025-01-10 12:00:00' },
-  { id: 'ev-2', title: 'อบรมเชิงปฏิบัติการระบบ ERP องค์กร',        type: 'teach', status: 'done',  assignee: 'staff1@school.ac.th',  start: '2025-01-20', end: '2025-01-22', startTime: '08:30', endTime: '16:30', location: 'ห้องคอมพิวเตอร์ 3', detail: 'อบรมหลักสูตรการใช้งานระบบ ERP สำหรับบุคลากรใหม่', updatedAt: '2025-01-22 17:00:00' },
-  { id: 'ev-3', title: 'โครงการพัฒนาเว็บไซต์และพอร์ทัลสถาบัน',     type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-02-01', end: '2025-03-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายสารสนเทศ IT',  detail: 'ปรับปรุงโฉมและฟังก์ชันเว็บไซต์หลักของสถาบัน', updatedAt: '2025-02-01 09:00:00' },
-  { id: 'ev-4', title: 'ประชุมคณะกรรมการบริหาร ประจำไตรมาส 1',    type: 'meet',  status: 'done',  assignee: 'head.hr@school.ac.th', start: '2025-02-15', end: '2025-02-15', startTime: '13:00', endTime: '16:00', location: 'ห้องประชุมใหญ่',   detail: 'รายงานสรุปผลการดำเนินงานและเป้าหมายไตรมาสถัดไป', updatedAt: '2025-02-15 16:30:00' },
-  { id: 'ev-5', title: 'อบรม Microsoft 365 เพื่อการทำงานร่วมกัน', type: 'teach', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-10', end: '2025-03-12', startTime: '08:30', endTime: '12:00', location: 'ห้องอบรม 2',       detail: 'การใช้งาน Teams, OneDrive และ Forms เพื่อการทำงาน', updatedAt: '2025-03-01 10:00:00' },
-  { id: 'ev-6', title: 'โครงการสำรวจความผูกพันและความพึงพอใจ',     type: 'proj',  status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-15', end: '2025-04-30', startTime: '',      endTime: '',      location: 'ฝ่ายทรัพยากรบุคคล', detail: 'จัดทำแบบสำรวจและประมวลผลข้อมูลความพึงพอใจบุคลากร', updatedAt: '2025-03-05 14:00:00' },
-  { id: 'ev-7', title: 'ประชุมปฐมนิเทศผู้ปกครอง ภาคเรียนที่ 1/2568', type: 'meet',  status: 'todo',  assignee: 'head.hr@school.ac.th', start: '2025-05-20', end: '2025-05-20', startTime: '14:00', endTime: '17:00', location: 'หอประชุมใหญ่',     detail: 'ชี้แจงแนวทางการเรียนการสอนและกฎระเบียบของสถาบัน', updatedAt: '2025-05-01 11:00:00' },
-  { id: 'ev-8', title: 'อบรมการตระหนักรู้ด้านความปลอดภัยไซเบอร์', type: 'teach', status: 'doing', assignee: 'head.it@school.ac.th', start: '2025-06-05', end: '2025-06-06', startTime: '09:00', endTime: '16:00', location: 'ห้องประชุม 2',     detail: 'หลักสูตร Cybersecurity Awareness สำหรับเจ้าหน้าที่ทุกฝ่าย', updatedAt: '2025-06-05 09:00:00' },
-  { id: 'ev-9', title: 'โครงการจัดทำคลังข้อมูลและแฟ้มประวัติบุคคล', type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-07-01', end: '2025-08-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายบุคคล HR',     detail: 'แปลงเอกสารสู่ระบบดิจิทัลและจัดหมวดหมู่ข้อมูล', updatedAt: '2025-07-01 08:30:00' },
-  { id: 'ev-10',title: 'กิจกรรมเฉลิมพระเกียรติวันแม่แห่งชาติ',     type: 'other', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-08-12', end: '2025-08-12', startTime: '08:00', endTime: '12:00', location: 'ลานอเนกประสงค์',   detail: 'พิธีถวายพระพรชัยมงคลและกิจกรรมบำเพ็ญประโยชน์', updatedAt: '2025-08-01 08:00:00' }
+const SEED_EVENTS = [
+  { id: 'ev-1', title: 'ประชุมวางแผนโครงการประจำปี 2568',         type: 'meet',  status: 'done',  assignee: 'head.it@school.ac.th', start: '2025-01-10', end: '2025-01-10', startTime: '09:00', endTime: '12:00', location: 'ห้องประชุม 1',     detail: 'ประชุมวางแผนงานประจำปีงบประมาณ 2568' },
+  { id: 'ev-2', title: 'อบรมเชิงปฏิบัติการระบบ ERP องค์กร',        type: 'teach', status: 'done',  assignee: 'staff1@school.ac.th',  start: '2025-01-20', end: '2025-01-22', startTime: '08:30', endTime: '16:30', location: 'ห้องคอมพิวเตอร์ 3', detail: 'อบรมหลักสูตรการใช้งานระบบ ERP สำหรับบุคลากรใหม่' },
+  { id: 'ev-3', title: 'โครงการพัฒนาเว็บไซต์และพอร์ทัลสถาบัน',     type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-02-01', end: '2025-03-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายสารสนเทศ IT',  detail: 'ปรับปรุงโฉมและฟังก์ชันเว็บไซต์หลักของสถาบัน' },
+  { id: 'ev-4', title: 'ประชุมคณะกรรมการบริหาร ประจำไตรมาส 1',    type: 'meet',  status: 'done',  assignee: 'head.hr@school.ac.th', start: '2025-02-15', end: '2025-02-15', startTime: '13:00', endTime: '16:00', location: 'ห้องประชุมใหญ่',   detail: 'รายงานสรุปผลการดำเนินงานและเป้าหมายไตรมาสถัดไป' },
+  { id: 'ev-5', title: 'อบรม Microsoft 365 เพื่อการทำงานร่วมกัน', type: 'teach', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-10', end: '2025-03-12', startTime: '08:30', endTime: '12:00', location: 'ห้องอบรม 2',       detail: 'การใช้งาน Teams, OneDrive และ Forms เพื่อการทำงาน' },
+  { id: 'ev-6', title: 'โครงการสำรวจความผูกพันและความพึงพอใจ',     type: 'proj',  status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-15', end: '2025-04-30', startTime: '',      endTime: '',      location: 'ฝ่ายทรัพยากรบุคคล', detail: 'จัดทำแบบสำรวจและประมวลผลข้อมูลความพึงพอใจบุคลากร' },
+  { id: 'ev-7', title: 'ประชุมปฐมนิเทศผู้ปกครอง ภาคเรียนที่ 1/2568', type: 'meet',  status: 'todo',  assignee: 'head.hr@school.ac.th', start: '2025-05-20', end: '2025-05-20', startTime: '14:00', endTime: '17:00', location: 'หอประชุมใหญ่',     detail: 'ชี้แจงแนวทางการเรียนการสอนและกฎระเบียบของสถาบัน' },
+  { id: 'ev-8', title: 'อบรมการตระหนักรู้ด้านความปลอดภัยไซเบอร์', type: 'teach', status: 'doing', assignee: 'head.it@school.ac.th', start: '2025-06-05', end: '2025-06-06', startTime: '09:00', endTime: '16:00', location: 'ห้องประชุม 2',     detail: 'หลักสูตร Cybersecurity Awareness สำหรับเจ้าหน้าที่ทุกฝ่าย' },
+  { id: 'ev-9', title: 'โครงการจัดทำคลังข้อมูลและแฟ้มประวัติบุคคล', type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-07-01', end: '2025-08-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายบุคคล HR',     detail: 'แปลงเอกสารสู่ระบบดิจิทัลและจัดหมวดหมู่ข้อมูล' },
+  { id: 'ev-10',title: 'กิจกรรมเฉลิมพระเกียรติวันแม่แห่งชาติ',     type: 'other', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-08-12', end: '2025-08-12', startTime: '08:00', endTime: '12:00', location: 'ลานอเนกประสงค์',   detail: 'พิธีถวายพระพรชัยมงคลและกิจกรรมบำเพ็ญประโยชน์' }
 ];
 
 function genId() {
-  return 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+  return 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
 }
 
 function getNowTimestamp() {
@@ -1208,19 +1200,12 @@ function getNowTimestamp() {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// =========================================================
+// APP OBJECT
+// =========================================================
 const App = {
-  // Configs
-  firebaseConfig: null,
-  sheetsApiUrl: '',
   db: null,
   auth: null,
-  isFirebaseActive: false,
-  broadcastChannel: null,
-  unsubscribeEvents: null,
-  unsubscribeUsers: null,
-  unsubscribeHolidays: null,
-
-  // App State
   currentUser: null,
   currentView: 'month',
   currentDate: new Date(2025, 0, 15),
@@ -1229,10 +1214,11 @@ const App = {
   holidays: [],
   filters: { assignee: '', type: '', status: '' },
   _notifications: [],
+  hasSeededCheck: false,
 
-  // Concurrent Editing Tracker
-  currentlyEditingId: null,
-  currentlyEditingTimestamp: null,
+  unsubEvents: null,
+  unsubUsers: null,
+  unsubHolidays: null,
 
   // ---------- INIT ----------
   async init() {
@@ -1241,399 +1227,131 @@ const App = {
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.getElementById('dark-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-    // 2. Load Offline / Cache data
-    this._loadCache();
-
-    // 3. Setup Cross-Tab Broadcast Channel (ทำให้ซิงก์เรียลไทม์ข้ามแท็บ/หน้าต่างทันทีแม้ยังไม่ได้ผูก Firebase)
-    this._setupBroadcastChannel();
-
-    // 4. Network listeners
-    window.addEventListener('online', () => this.updateConnectionStatus(true));
-    window.addEventListener('offline', () => this.updateConnectionStatus(false));
-
-    // 5. Load Saved Config
-    const savedFb = localStorage.getItem('app_firebase_config');
-    if (savedFb) {
-      try { this.firebaseConfig = JSON.parse(savedFb); } catch(e){}
-    }
-    this.sheetsApiUrl = localStorage.getItem('gas_api_url') || '';
-
-    // 6. Initialize Firebase
-    this.initFirebase();
-
-    // 7. Check Auth Session
-    const savedUser = localStorage.getItem('app_current_user');
-    if (savedUser) {
-      try {
-        this.currentUser = JSON.parse(savedUser);
-        this._showApp();
-      } catch (e) {
-        localStorage.removeItem('app_current_user');
-      }
-    }
-  },
-
-  _loadCache() {
-    const ev = localStorage.getItem('app_cache_events');
-    this.events = ev ? JSON.parse(ev) : [...DEFAULT_EVENTS];
-
-    const u = localStorage.getItem('app_cache_users');
-    this.users = u ? JSON.parse(u) : [...DEFAULT_USERS];
-
-    const h = localStorage.getItem('app_cache_holidays');
-    this.holidays = h ? JSON.parse(h) : [...DEFAULT_HOLIDAYS];
-  },
-
-  _saveCache() {
-    localStorage.setItem('app_cache_events',   JSON.stringify(this.events));
-    localStorage.setItem('app_cache_users',    JSON.stringify(this.users));
-    localStorage.setItem('app_cache_holidays', JSON.stringify(this.holidays));
-  },
-
-  // ---------- CROSS-TAB REALTIME SYNC (0ms Latency) ----------
-  _setupBroadcastChannel() {
-    if (typeof BroadcastChannel !== 'undefined') {
-      this.broadcastChannel = new BroadcastChannel('calendar_realtime_channel');
-      this.broadcastChannel.onmessage = (event) => {
-        const data = event.data;
-        if (!data) return;
-        this._handleRealtimeBroadcast(data);
-      };
-    }
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'app_realtime_ping') {
-        this._loadCache();
-        this.renderCalendar();
-        this._checkNotifications();
-      }
-    });
-  },
-
-  _broadcastChange(payload) {
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage(payload);
-      } catch(e){}
-    }
-    try {
-      localStorage.setItem('app_cache_events', JSON.stringify(this.events));
-      localStorage.setItem('app_realtime_ping', Date.now().toString());
-    } catch(e){}
-  },
-
-  _handleRealtimeBroadcast(data) {
-    if (data.type === 'event_upsert') {
-      const ev = data.event;
-      // Concurrent check
-      if (this.currentlyEditingId === ev.id && data.sender !== (this.currentUser ? this.currentUser.email : '')) {
-        this._onConcurrentEditDetected(ev);
-      }
-      const idx = this.events.findIndex(e => e.id === ev.id);
-      if (idx !== -1) this.events[idx] = ev;
-      else this.events.push(ev);
-
-      this._saveCache();
-      this.renderCalendar();
-      this._checkNotifications();
-      if (document.getElementById('page-dashboard').style.display !== 'none') {
-        this.renderDashboard();
-      }
-    } else if (data.type === 'event_delete') {
-      this.events = this.events.filter(e => e.id !== data.id);
-      this._saveCache();
-      this.renderCalendar();
-      this._checkNotifications();
-      if (document.getElementById('page-dashboard').style.display !== 'none') {
-        this.renderDashboard();
-      }
-    } else if (data.type === 'status_change') {
-      const ev = this.events.find(e => e.id === data.id);
-      if (ev) {
-        ev.status = data.status;
-        ev.updatedAt = data.updatedAt;
-        this._saveCache();
-        this.renderCalendar();
-        this._checkNotifications();
-      }
-    }
-  },
-
-  // ---------- FIREBASE INITIALIZATION & REALTIME LISTENERS ----------
-  initFirebase() {
-    if (!this.firebaseConfig || !this.firebaseConfig.apiKey) {
-      this.isFirebaseActive = false;
-      this.updateConnectionStatus('local_realtime');
-      document.getElementById('db-type-label').textContent = 'เรียลไทม์ (Local Sync ทุกแท็บ)';
+    // 2. ตรวจสอบการตั้งค่า Firebase ใน firebase-config.js
+    if (!firebaseConfig || !firebaseConfig.apiKey) {
+      document.getElementById('cfg-warning-box').style.display = 'block';
+      this.updateConnectionStatus(false);
+      this.bindDOMEvents();
       return;
     }
 
+    // 3. เริ่มต้น Firebase App, Auth และ Firestore
     try {
-      if (!firebase.apps.length) {
-        firebase.initializeApp(this.firebaseConfig);
+      const app = initializeApp(firebaseConfig);
+      this.auth = getAuth(app);
+      this.db = getFirestore(app);
+
+      // แสดงเมนูนำเข้าจากชีตถ้ามี URL
+      if (googleSheetsApiUrl) {
+        document.getElementById('nav-import-sheets').style.display = 'flex';
       }
-      this.db = firebase.firestore();
-      this.auth = firebase.auth();
 
-      try {
-        this.db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-      } catch (err) {}
-
-      this.isFirebaseActive = true;
-      document.getElementById('db-type-label').textContent = 'Firestore Realtime';
-      this.updateConnectionStatus(true);
-
-      // Listen for Auth Changes
-      this.auth.onAuthStateChanged(async user => {
+      // 4. ติดตามสถานะการเข้าสู่ระบบ (Authentication State)
+      onAuthStateChanged(this.auth, async (user) => {
         if (user) {
-          await this._syncUserProfile(user);
-          this._startRealtimeListeners();
+          await this.handleUserSignedIn(user);
+        } else {
+          this.handleUserSignedOut();
         }
       });
 
     } catch (err) {
-      console.error('Firebase init error:', err);
-      this.isFirebaseActive = false;
-      this.updateConnectionStatus('local_realtime');
-    }
-  },
-
-  updateConnectionStatus(status) {
-    const pill = document.getElementById('connection-status-pill');
-    const dot  = document.getElementById('conn-dot');
-    const txt  = document.getElementById('conn-text');
-    if (!pill) return;
-
-    if (status === true || status === 'realtime') {
-      pill.className = 'status-pill realtime';
-      dot.textContent = '🟢';
-      txt.textContent = 'เรียลไทม์ (Firestore)';
-    } else if (status === 'local_realtime') {
-      pill.className = 'status-pill realtime';
-      dot.textContent = '🟢';
-      txt.textContent = 'เรียลไทม์ (ซิงก์สดทุกแท็บ)';
-    } else if (status === false || status === 'offline') {
-      pill.className = 'status-pill offline';
-      dot.textContent = '⚠️';
-      txt.textContent = 'ออฟไลน์';
-    } else {
-      pill.className = 'status-pill realtime';
-      dot.textContent = '🟢';
-      txt.textContent = 'เรียลไทม์ (พร้อมใช้งาน)';
-    }
-  },
-
-  _startRealtimeListeners() {
-    if (!this.db || !this.isFirebaseActive) return;
-
-    // 1. REALTIME EVENTS LISTENER
-    if (this.unsubscribeEvents) this.unsubscribeEvents();
-    this.unsubscribeEvents = this.db.collection('events').onSnapshot(
-      snapshot => {
-        const isFromCache = snapshot.metadata.fromCache;
-        this.updateConnectionStatus(isFromCache && !navigator.onLine ? 'offline' : 'realtime');
-
-        const newEvents = [];
-        snapshot.forEach(doc => {
-          newEvents.push({ id: doc.id, ...doc.data() });
-        });
-
-        // ตรวจสอบการแก้ไขงานเดียวกันจากเครื่องอื่น (Concurrent Edit Detection)
-        if (this.currentlyEditingId) {
-          snapshot.docChanges().forEach(change => {
-            if (change.doc.id === this.currentlyEditingId && change.type === 'modified') {
-              const changedData = change.doc.data();
-              if (changedData.updatedAt !== this.currentlyEditingTimestamp) {
-                this._onConcurrentEditDetected(changedData);
-              }
-            }
-          });
-        }
-
-        this.events = newEvents;
-        this._saveCache();
-        this.renderCalendar();
-        this._checkNotifications();
-        if (document.getElementById('page-dashboard').style.display !== 'none') {
-          this.renderDashboard();
-        }
-      },
-      error => {
-        console.warn('Events listener error:', error);
-        this.updateConnectionStatus('local_realtime');
-      }
-    );
-
-    // 2. REALTIME USERS LISTENER
-    if (this.unsubscribeUsers) this.unsubscribeUsers();
-    this.unsubscribeUsers = this.db.collection('users').onSnapshot(snapshot => {
-      const uList = [];
-      snapshot.forEach(doc => uList.push({ email: doc.id, ...doc.data() }));
-      if (uList.length > 0) {
-        this.users = uList;
-        this._saveCache();
-        this._fillAssigneeFilter();
-        if (this.currentUser) {
-          const fresh = this.users.find(u => u.email.toLowerCase() === this.currentUser.email.toLowerCase());
-          if (fresh) {
-            this.currentUser = { ...this.currentUser, ...fresh };
-            this._updateHeaderUser();
-          }
-        }
-      }
-    });
-
-    // 3. REALTIME HOLIDAYS LISTENER
-    if (this.unsubscribeHolidays) this.unsubscribeHolidays();
-    this.unsubscribeHolidays = this.db.collection('holidays').onSnapshot(snapshot => {
-      const hList = [];
-      snapshot.forEach(doc => hList.push({ id: doc.id, ...doc.data() }));
-      if (hList.length > 0) {
-        this.holidays = hList;
-        this._saveCache();
-        this.renderCalendar();
-      }
-    });
-  },
-
-  _onConcurrentEditDetected(newData) {
-    const banner = document.getElementById('concurrent-warning-banner');
-    if (banner) {
-      banner.style.display = 'flex';
-      banner.innerHTML = `⚠️ <strong>ตรวจพบการแก้ไขจากเครื่องอื่น:</strong> ระบบได้อัปเดตข้อมูลเป็นเวอร์ชันล่าสุดเรียบร้อยแล้ว`;
-    }
-    const title = document.getElementById('ev-title');
-    const type = document.getElementById('ev-type');
-    const status = document.getElementById('ev-status');
-    const start = document.getElementById('ev-start');
-    const end = document.getElementById('ev-end');
-    const detail = document.getElementById('ev-detail');
-
-    if (title) title.value = newData.title || '';
-    if (type)  type.value  = newData.type  || 'other';
-    if (status)status.value= newData.status|| 'todo';
-    if (start) start.value = newData.start || '';
-    if (end)   end.value   = newData.end   || '';
-    if (detail)detail.value= newData.detail|| '';
-
-    this.currentlyEditingTimestamp = newData.updatedAt;
-    this.showToast('มีคนอื่นแก้ไขงานนี้พร้อมกัน ข้อมูลถูกอัปเดตเป็นล่าสุดแล้ว', 'warning');
-  },
-
-  // ---------- AUTHENTICATION (เข้าได้ทันที ไม่บล็อกผู้ใช้) ----------
-  async loginGoogle() {
-    // หากเชื่อม Firebase และพร้อมใช้งาน ให้เปิด Google Sign-In Popup
-    if (this.isFirebaseActive && this.auth) {
-      this.showLoading(true, 'กำลังเข้าสู่ระบบ Google Account...');
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        const res = await this.auth.signInWithPopup(provider);
-        await this._syncUserProfile(res.user);
-        this._showApp();
-        this.showToast(`เข้าสู่ระบบ Google สำเร็จ: คุณ${this.currentUser.name}`, 'success');
-        return;
-      } catch (err) {
-        console.warn('Firebase popup error, falling back to instant Google login:', err);
-      } finally {
-        this.showLoading(false);
-      }
+      console.error('Firebase initialization error:', err);
+      this.showToast('เชื่อมต่อ Firebase ไม่สำเร็จ: ' + err.message, 'error');
+      this.updateConnectionStatus(false);
     }
 
-    // กรณี Firebase ยังไม่ได้ตั้งค่า: ล็อกอินเข้าใช้งานด้วยบัญชี Google ทันที ไม่บล็อกผู้ใช้
-    const sel = document.getElementById('demo-user-select');
-    const email = (sel && sel.value) ? sel.value : 'admin@school.ac.th';
-    const u = this.users.find(x => x.email === email) || DEFAULT_USERS.find(x => x.email === email);
-    this.currentUser = {
-      ...u,
-      photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-    };
-    localStorage.setItem('app_current_user', JSON.stringify(this.currentUser));
-    this._showApp();
-    this.showToast(`เข้าสู่ระบบด้วย Google Account: ${this.currentUser.name} (${this.currentUser.email})`, 'success');
+    this.bindDOMEvents();
   },
 
-  async _syncUserProfile(user) {
+  // ---------- AUTHENTICATION & ROLE LOOKUP ----------
+  async handleUserSignedIn(user) {
+    this.showLoading(true, 'กำลังโหลดข้อมูลสิทธิ์ผู้ใช้...');
     const email = user.email.toLowerCase();
-    let userData = {
-      email: email,
-      name: user.displayName || email.split('@')[0],
-      department: 'IT',
-      role: 'admin', // บัญชีแรกที่ล็อกอินให้สิทธิ์ Admin ทันที
-      photoURL: user.photoURL || ''
-    };
 
-    if (this.db) {
-      try {
-        const userDoc = await this.db.collection('users').doc(email).get();
-        if (userDoc.exists) {
-          userData = { ...userData, ...userDoc.data() };
-        } else {
-          await this.db.collection('users').doc(email).set(userData);
-        }
-      } catch (e) {
-        console.warn('Sync user profile error:', e);
+    try {
+      const userDocRef = doc(this.db, 'users', email);
+      const userDocSnap = await getDoc(userDocRef);
+
+      let userData;
+      if (userDocSnap.exists()) {
+        userData = userDocSnap.data();
+      } else {
+        // หากผู้ใช้เพิ่งเข้าสู่ระบบครั้งแรก สร้างข้อมูลใน collection "users"
+        // ถ้าเป็น admin หรือคนแรกในระบบ กำหนด role เป็น admin
+        const usersSnap = await getDocs(collection(this.db, 'users'));
+        const isFirstUser = usersSnap.empty;
+        const isAdminEmail = email.includes('admin');
+
+        userData = {
+          email: email,
+          name: user.displayName || email.split('@')[0],
+          department: isAdminEmail ? 'IT' : 'ทั่วไป',
+          role: (isFirstUser || isAdminEmail) ? 'admin' : 'staff',
+          photoURL: user.photoURL || ''
+        };
+        await setDoc(userDocRef, userData);
       }
-    }
 
-    this.currentUser = userData;
-    localStorage.setItem('app_current_user', JSON.stringify(userData));
-  },
+      this.currentUser = {
+        email: email,
+        name: userData.name || user.displayName || email,
+        department: userData.department || 'ทั่วไป',
+        role: userData.role || 'staff',
+        photoURL: user.photoURL || userData.photoURL || ''
+      };
 
-  onDemoUserChange() {
-    const sel = document.getElementById('demo-user-select');
-    if (sel.value) {
-      const u = this.users.find(x => x.email === sel.value) || DEFAULT_USERS.find(x => x.email === sel.value);
-      if (u) {
-        this.currentUser = u;
-      }
-    }
-  },
+      this.showApp();
+      this.startRealtimeListeners();
+      this.showToast(`ยินดีต้อนรับ คุณ${this.currentUser.name} (${this.getRoleLabel(this.currentUser.role)})`, 'success');
 
-  loginDemo() {
-    const sel = document.getElementById('demo-user-select');
-    const email = (sel && sel.value) ? sel.value : 'admin@school.ac.th';
-    const u = this.users.find(x => x.email === email) || DEFAULT_USERS.find(x => x.email === email);
-    this.currentUser = u;
-    localStorage.setItem('app_current_user', JSON.stringify(u));
-    this._showApp();
-    this.showToast(`เข้าสู่ระบบเรียบร้อย: คุณ${u.name} (${this.getRoleLabel(u.role)})`, 'success');
-
-    if (this.isFirebaseActive) {
-      this._startRealtimeListeners();
+    } catch (err) {
+      console.error('Role lookup error:', err);
+      this.showToast('ดึงข้อมูลสิทธิ์ไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
     }
   },
 
-  logout() {
-    if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
-    if (this.auth && this.auth.currentUser) {
-      this.auth.signOut().catch(() => {});
-    }
-    if (this.unsubscribeEvents) this.unsubscribeEvents();
-    if (this.unsubscribeUsers) this.unsubscribeUsers();
-    if (this.unsubscribeHolidays) this.unsubscribeHolidays();
-
-    localStorage.removeItem('app_current_user');
+  handleUserSignedOut() {
+    this.stopRealtimeListeners();
     this.currentUser = null;
+    this.events = [];
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
   },
 
-  _showApp() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-
-    this._updateHeaderUser();
-    this._fillAssigneeFilter();
-    this.navigate('calendar');
-    this._checkNotifications();
-
-    if (this.isFirebaseActive) {
-      this._startRealtimeListeners();
+  async loginWithGoogle() {
+    if (!this.auth) {
+      this.showToast('กรุณากรอกค่า Firebase Config ในไฟล์ firebase-config.js ก่อน', 'warning');
+      return;
+    }
+    this.showLoading(true, 'กำลังเปิดหน้าต่างเข้าสู่ระบบ Google...');
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(this.auth, provider);
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        this.showToast('เข้าสู่ระบบไม่สำเร็จ: ' + err.message, 'error');
+      }
+    } finally {
+      this.showLoading(false);
     }
   },
 
-  _updateHeaderUser() {
+  async logout() {
+    if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
+    if (this.auth) {
+      await signOut(this.auth);
+    }
+    this.handleUserSignedOut();
+  },
+
+  showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
     const u = this.currentUser;
-    if (!u) return;
     document.getElementById('hdr-name').textContent = u.name;
     const avatarEl = document.getElementById('hdr-avatar');
     if (u.photoURL) {
@@ -1644,35 +1362,387 @@ const App = {
     document.getElementById('hdr-dept').textContent = u.department || 'ทั่วไป';
     document.getElementById('hdr-role').textContent = this.getRoleLabel(u.role);
 
-    // เมนู Admin
     const isAdmin = (u.role === 'admin');
     document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+
+    this.navigate('calendar');
   },
 
-  _fillAssigneeFilter() {
-    const sel = document.getElementById('f-assignee');
-    const curVal = sel.value;
-    sel.innerHTML = '<option value="">ทุกคน</option>';
-    this.users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.email;
-      opt.textContent = `${u.name} (${u.department || 'ทั่วไป'})`;
-      sel.appendChild(opt);
+  // ---------- REAL-TIME ONSNAPSHOT LISTENERS ----------
+  startRealtimeListeners() {
+    if (!this.db) return;
+
+    // 1. Listen to "events" collection
+    this.unsubEvents = onSnapshot(collection(this.db, 'events'), async (snapshot) => {
+      // ตรวจสอบข้อมูลตัวอย่างครั้งแรกเมื่อ collection ว่างเท่านั้น
+      if (snapshot.empty && !this.hasSeededCheck) {
+        this.hasSeededCheck = true;
+        await this.seedInitialDataIfEmpty();
+        return;
+      }
+      this.hasSeededCheck = true;
+
+      const loadedEvents = [];
+      snapshot.forEach((docSnap) => {
+        loadedEvents.push({ id: docSnap.id, ...docSnap.data() });
+      });
+
+      this.events = loadedEvents;
+      this.updateConnectionStatus(true);
+      this.renderCalendar();
+      this.checkNotifications();
+
+      if (document.getElementById('page-dashboard').style.display !== 'none') {
+        this.renderDashboard();
+      }
+    }, (error) => {
+      console.error('Events onSnapshot error:', error);
+      this.updateConnectionStatus(false);
+      this.showToast('การเชื่อมต่อ Firestore ขัดข้อง: ' + error.message, 'error');
     });
-    sel.value = curVal;
+
+    // 2. Listen to "users" collection
+    this.unsubUsers = onSnapshot(collection(this.db, 'users'), (snapshot) => {
+      const uList = [];
+      snapshot.forEach(docSnap => uList.push({ email: docSnap.id, ...docSnap.data() }));
+      this.users = uList;
+      this.fillAssigneeFilter();
+
+      // อัปเดตข้อมูลผู้ใช้ปัจจุบันหากมีการเปลี่ยน role หรือชื่อ
+      if (this.currentUser) {
+        const fresh = this.users.find(u => u.email.toLowerCase() === this.currentUser.email.toLowerCase());
+        if (fresh) {
+          this.currentUser.role = fresh.role || this.currentUser.role;
+          this.currentUser.department = fresh.department || this.currentUser.department;
+          this.currentUser.name = fresh.name || this.currentUser.name;
+          document.getElementById('hdr-name').textContent = this.currentUser.name;
+          document.getElementById('hdr-dept').textContent = this.currentUser.department;
+          document.getElementById('hdr-role').textContent = this.getRoleLabel(this.currentUser.role);
+          const isAdmin = (this.currentUser.role === 'admin');
+          document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+        }
+      }
+
+      if (document.getElementById('page-users').style.display !== 'none') {
+        this.renderUsers();
+      }
+    });
+
+    // 3. Listen to "holidays" collection
+    this.unsubHolidays = onSnapshot(collection(this.db, 'holidays'), (snapshot) => {
+      const hList = [];
+      snapshot.forEach(docSnap => hList.push({ date: docSnap.id, ...docSnap.data() }));
+      this.holidays = hList;
+      this.renderCalendar();
+
+      if (document.getElementById('page-holidays').style.display !== 'none') {
+        this.renderHolidays();
+      }
+    });
   },
 
-  // ---------- NAVIGATION ----------
+  stopRealtimeListeners() {
+    if (this.unsubEvents) { this.unsubEvents(); this.unsubEvents = null; }
+    if (this.unsubUsers) { this.unsubUsers(); this.unsubUsers = null; }
+    if (this.unsubHolidays) { this.unsubHolidays(); this.unsubHolidays = null; }
+  },
+
+  updateConnectionStatus(isConnected) {
+    const pill = document.getElementById('connection-status-pill');
+    const dot  = document.getElementById('conn-dot');
+    const txt  = document.getElementById('conn-text');
+    if (!pill) return;
+
+    if (isConnected) {
+      pill.className = 'status-pill realtime';
+      dot.textContent = '🟢';
+      txt.textContent = 'เชื่อมต่อฐานข้อมูลแล้ว';
+    } else {
+      pill.className = 'status-pill offline';
+      dot.textContent = '⚠️';
+      txt.textContent = 'ออฟไลน์';
+    }
+  },
+
+  // ---------- SEED INITIAL DATA (WHEN COLLECTION IS EMPTY) ----------
+  async seedInitialDataIfEmpty() {
+    this.showLoading(true, 'กำลังติดตั้งข้อมูลตัวอย่างตั้งต้นลง Firestore...');
+    try {
+      const batch = writeBatch(this.db);
+
+      // 1. Events
+      SEED_EVENTS.forEach(ev => {
+        const ref = doc(this.db, 'events', ev.id);
+        batch.set(ref, {
+          ...ev,
+          updatedAt: getNowTimestamp()
+        });
+      });
+
+      // 2. Holidays
+      SEED_HOLIDAYS.forEach(hol => {
+        const ref = doc(this.db, 'holidays', hol.date);
+        batch.set(ref, hol);
+      });
+
+      // 3. Users
+      SEED_USERS.forEach(usr => {
+        const ref = doc(this.db, 'users', usr.email);
+        batch.set(ref, usr);
+      });
+
+      await batch.commit();
+      this.showToast('ติดตั้งข้อมูลตัวอย่างครั้งแรกใน Firestore เรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      console.error('Seed initial data error:', err);
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- EVENT CRUD (SETDOC / DELETEDOC / UPDATEDOC) ----------
+  async saveEvent(editId) {
+    const title     = document.getElementById('ev-title').value.trim();
+    const type      = document.getElementById('ev-type').value;
+    const status    = document.getElementById('ev-status').value;
+    const assignee  = document.getElementById('ev-assignee').value;
+    const start     = document.getElementById('ev-start').value;
+    const end       = document.getElementById('ev-end').value || start;
+    const startTime = document.getElementById('ev-startTime').value;
+    const endTime   = document.getElementById('ev-endTime').value;
+    const location  = document.getElementById('ev-location').value.trim();
+    const detail    = document.getElementById('ev-detail').value.trim();
+
+    if (!title) { this.showToast('กรุณาระบุชื่องาน', 'warning'); return; }
+    if (!start) { this.showToast('กรุณาระบุวันเริ่มต้น', 'warning'); return; }
+    if (end < start) { this.showToast('วันสิ้นสุดต้องไม่น้อยกว่าวันเริ่มต้น', 'warning'); return; }
+
+    const id = editId || genId();
+    const nowStamp = getNowTimestamp();
+    const targetUser = this.users.find(u => u.email === assignee);
+    const department = targetUser ? (targetUser.department || '') : '';
+
+    const eventData = {
+      id, title, type, status, assignee, start, end, startTime, endTime, location, detail,
+      department: department,
+      updatedAt: nowStamp,
+      updatedBy: this.currentUser ? this.currentUser.email : ''
+    };
+
+    this.showLoading(true, 'กำลังบันทึกลง Firestore...');
+    try {
+      await setDoc(doc(this.db, 'events', id), eventData, { merge: true });
+      this.closeModal('event-modal');
+      this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
+
+      // ซิงก์ลง Google Sheets (ถ้ามี URL)
+      this.syncToGoogleSheets('upsertEvent', eventData);
+    } catch (err) {
+      this.showToast('บันทึกล้มเหลว: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteEvent(id) {
+    const ev = this.events.find(e => e.id === id);
+    if (!ev) return;
+    if (!confirm(`คุณต้องการลบงาน "${ev.title}" ใช่หรือไม่?`)) return;
+
+    this.showLoading(true, 'กำลังลบงานออกจาก Firestore...');
+    try {
+      await deleteDoc(doc(this.db, 'events', id));
+      this.closeModal('event-modal');
+      this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
+
+      // ซิงก์ลบใน Google Sheets
+      this.syncToGoogleSheets('deleteEvent', { id });
+    } catch (err) {
+      this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async changeStatusInstant(id, status) {
+    const ev = this.events.find(e => e.id === id);
+    if (!ev) return;
+
+    const u = this.currentUser;
+    if (u.role === 'staff' && ev.assignee !== u.email) {
+      this.showToast('ไม่มีสิทธิ์เปลี่ยนสถานะงานของผู้อื่น', 'error');
+      return;
+    }
+
+    try {
+      const nowStamp = getNowTimestamp();
+      await updateDoc(doc(this.db, 'events', id), {
+        status: status,
+        updatedAt: nowStamp,
+        updatedBy: u.email
+      });
+      this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
+      this.syncToGoogleSheets('updateStatus', { id, status });
+    } catch (err) {
+      this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  // ---------- GOOGLE SHEETS SYNC & IMPORT ----------
+  async syncToGoogleSheets(action, payload) {
+    if (!googleSheetsApiUrl) return;
+    try {
+      await fetch(googleSheetsApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: action,
+          userEmail: this.currentUser ? this.currentUser.email : '',
+          ...payload
+        })
+      });
+    } catch (err) {
+      console.warn('Sync to Google Sheets error:', err);
+    }
+  },
+
+  async importFromGoogleSheets() {
+    if (!googleSheetsApiUrl) {
+      this.showToast('กรุณาระบุ googleSheetsApiUrl ในไฟล์ firebase-config.js', 'warning');
+      return;
+    }
+    if (this.currentUser.role !== 'admin') {
+      this.showToast('เฉพาะ Admin เท่านั้นที่นำเข้าข้อมูลได้', 'error');
+      return;
+    }
+    if (!confirm('ต้องการอ่านข้อมูลจาก Google Sheets เพื่ออัปเดตลงใน Firestore หรือไม่?')) return;
+
+    this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
+    try {
+      const resp = await fetch(googleSheetsApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getEvents' })
+      });
+      const res = await resp.json();
+      if (!res.success || !res.data) throw new Error(res.error || 'ดึงข้อมูลไม่สำเร็จ');
+
+      const sheetEvents = res.data;
+      if (sheetEvents.length === 0) {
+        this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
+        return;
+      }
+
+      this.showLoading(true, `กำลังเขียน ${sheetEvents.length} รายการลง Firestore...`);
+      const batch = writeBatch(this.db);
+      sheetEvents.forEach(item => {
+        if (item.id) {
+          const ref = doc(this.db, 'events', item.id);
+          batch.set(ref, {
+            ...item,
+            updatedAt: item.updatedAt || getNowTimestamp()
+          }, { merge: true });
+        }
+      });
+      await batch.commit();
+      this.showToast(`นำเข้าสำเร็จ ${sheetEvents.length} รายการจาก Google Sheets สู่ Firestore แล้ว`, 'success');
+    } catch (err) {
+      this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- USER MANAGEMENT (ADMIN) ----------
+  async saveUser(editEmail) {
+    const email = document.getElementById('u-email').value.trim().toLowerCase();
+    const name  = document.getElementById('u-name').value.trim();
+    const dept  = document.getElementById('u-dept').value.trim();
+    const role  = document.getElementById('u-role').value;
+
+    if (!email) { this.showToast('กรุณาระบุอีเมล', 'warning'); return; }
+    if (!name)  { this.showToast('กรุณาระบุชื่อ-นามสกุล', 'warning'); return; }
+
+    const userData = { email, name, department: dept, role };
+    this.showLoading(true, 'กำลังบันทึกข้อมูลผู้ใช้...');
+    try {
+      await setDoc(doc(this.db, 'users', email), userData, { merge: true });
+      this.closeModal('user-modal');
+      this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets(editEmail ? 'updateUser' : 'createUser', userData);
+    } catch (err) {
+      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteUser(email) {
+    if (email === this.currentUser.email) {
+      this.showToast('ไม่สามารถลบบัญชีตนเองได้', 'error');
+      return;
+    }
+    if (!confirm(`ต้องการลบผู้ใช้ ${email} ใช่หรือไม่?`)) return;
+
+    this.showLoading(true, 'กำลังลบผู้ใช้...');
+    try {
+      await deleteDoc(doc(this.db, 'users', email));
+      this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets('deleteUser', { email });
+    } catch (err) {
+      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- HOLIDAY MANAGEMENT (ADMIN) ----------
+  async saveHoliday() {
+    const date = document.getElementById('h-date').value;
+    const name = document.getElementById('h-name').value.trim();
+    const type = document.getElementById('h-type').value;
+
+    if (!date) { this.showToast('กรุณาระบุวันที่', 'warning'); return; }
+    if (!name) { this.showToast('กรุณาระบุชื่อวันหยุด', 'warning'); return; }
+
+    const holidayData = { date, name, type };
+    this.showLoading(true, 'กำลังบันทึกวันหยุด...');
+    try {
+      await setDoc(doc(this.db, 'holidays', date), holidayData);
+      this.closeModal('hol-modal');
+      this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets('createHoliday', holidayData);
+    } catch (err) {
+      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteHoliday(date) {
+    if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
+    this.showLoading(true, 'กำลังลบวันหยุด...');
+    try {
+      await deleteDoc(doc(this.db, 'holidays', date));
+      this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets('deleteHoliday', { date });
+    } catch (err) {
+      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- UI NAVIGATION & CALENDAR RENDERING ----------
   navigate(page) {
     ['calendar','dashboard','users','holidays'].forEach(p => {
       const el = document.getElementById('page-' + p);
       if (el) el.style.display = (p === page) ? 'block' : 'none';
     });
-
     document.getElementById('filter-bar').style.display = (page === 'calendar') ? 'flex' : 'none';
 
     document.querySelectorAll('.nav-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.page === page);
+      el.classList.toggle('active', el.dataset.nav === page);
     });
 
     if (page === 'calendar')  this.renderCalendar();
@@ -1685,19 +1755,19 @@ const App = {
     }
   },
 
-  toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
+  fillAssigneeFilter() {
+    const sel = document.getElementById('f-assignee');
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">ทุกคน</option>';
+    this.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.email;
+      opt.textContent = `${u.name} (${u.department || 'ทั่วไป'})`;
+      sel.appendChild(opt);
+    });
+    sel.value = curVal;
   },
 
-  toggleDark() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('app_theme', next);
-    document.getElementById('dark-btn').textContent = next === 'dark' ? '☀️' : '🌙';
-  },
-
-  // ---------- DATE HELPERS (พ.ศ.) ----------
   toYMD(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -1736,54 +1806,15 @@ const App = {
     return u ? u.name : email;
   },
 
-  // ---------- CALENDAR VIEWS ----------
-  setView(v) {
-    this.currentView = v;
-    document.querySelectorAll('.view-tab').forEach((t, i) => {
-      t.classList.toggle('active', ['month','week','day'][i] === v);
-    });
-    this.renderCalendar();
-  },
-
-  goToday() {
-    this.currentDate = new Date();
-    this.renderCalendar();
-  },
-
-  navPrev() {
-    const d = this.currentDate;
-    if (this.currentView === 'month')     d.setMonth(d.getMonth() - 1);
-    else if (this.currentView === 'week') d.setDate(d.getDate() - 7);
-    else                                  d.setDate(d.getDate() - 1);
-    this.renderCalendar();
-  },
-
-  navNext() {
-    const d = this.currentDate;
-    if (this.currentView === 'month')     d.setMonth(d.getMonth() + 1);
-    else if (this.currentView === 'week') d.setDate(d.getDate() + 7);
-    else                                  d.setDate(d.getDate() + 1);
-    this.renderCalendar();
-  },
-
-  applyFilter() {
-    this.filters.assignee = document.getElementById('f-assignee').value;
-    this.filters.type     = document.getElementById('f-type').value;
-    this.filters.status   = document.getElementById('f-status').value;
-    this.renderCalendar();
-  },
-
   getFilteredEvents() {
     const u = this.currentUser;
     return this.events.filter(ev => {
-      // สิทธิ์: head เห็นทั้งแผนกของตน
       if (u && u.role === 'head' && u.department) {
         const deptUsers = this.users.filter(x => x.department === u.department).map(x => x.email);
         if (deptUsers.indexOf(ev.assignee) === -1 && ev.assignee !== u.email) {
           return false;
         }
       }
-
       if (this.filters.assignee && ev.assignee !== this.filters.assignee) return false;
       if (this.filters.type     && ev.type     !== this.filters.type)     return false;
       if (this.filters.status   && ev.status   !== this.filters.status)   return false;
@@ -1797,7 +1828,6 @@ const App = {
     return map;
   },
 
-  // ---------- RENDER MONTH ----------
   renderCalendar() {
     const wrap = document.getElementById('page-calendar');
     wrap.innerHTML = '';
@@ -1848,7 +1878,7 @@ const App = {
       if (hol)       cls += ' holiday-day';
       if (isToday)   cls += ' today';
 
-      html += `<div class="${cls}" onclick="App.openEventModal('${dateStr}', null)">
+      html += `<div class="${cls}" data-date="${dateStr}">
         <div class="day-num-box">
           <span class="day-num">${day}</span>
           ${dayEvents.length > 0 ? `<span style="font-size:0.65rem;color:var(--text3)">${dayEvents.length}</span>` : ''}
@@ -1863,14 +1893,14 @@ const App = {
         const isDone = ev.status === 'done';
         const isMulti = ev.end && ev.end !== ev.start;
         html += `<div class="event-pill ${ev.type}${isDone ? ' done-status' : ''}" 
-                      onclick="event.stopPropagation();App.showEventDetail('${ev.id}', this)" 
+                      data-event-id="${ev.id}"
                       title="${ev.title} (${this.getStatusLabel(ev.status)})">
           ${isMulti ? '↔ ' : ''}${ev.startTime ? ev.startTime + ' ' : ''}${ev.title}
         </div>`;
       });
 
       if (dayEvents.length > maxShow) {
-        html += `<div class="more-events" onclick="event.stopPropagation();App.openDaySummaryModal('${dateStr}')">+ อื่นๆ อีก ${dayEvents.length - maxShow} งาน</div>`;
+        html += `<div class="more-events" data-more-date="${dateStr}">+ อีก ${dayEvents.length - maxShow} งาน</div>`;
       }
 
       html += `</div>`;
@@ -1937,7 +1967,7 @@ const App = {
 
       html += `<div class="timeline-day-col">`;
       for (let h = 0; h < 24; h++) {
-        html += `<div class="timeline-hour-slot" onclick="App.openEventModal('${ds}', null, '${String(h).padStart(2,'0')}:00')"></div>`;
+        html += `<div class="timeline-hour-slot" data-slot-date="${ds}" data-slot-time="${String(h).padStart(2,'0')}:00"></div>`;
       }
 
       dayEvents.forEach(ev => {
@@ -1953,7 +1983,7 @@ const App = {
         }
         html += `<div class="timeline-event-card ${ev.type}" 
                       style="top:${top}px;height:${height}px;" 
-                      onclick="event.stopPropagation();App.showEventDetail('${ev.id}', this)">
+                      data-event-id="${ev.id}">
           <strong>${ev.title}</strong><br>
           ${ev.startTime ? ev.startTime + (ev.endTime ? '–'+ev.endTime : '') : 'ทั้งวัน'}
         </div>`;
@@ -1993,7 +2023,7 @@ const App = {
     html += `<div class="timeline-cols-wrap" style="grid-template-columns: 1fr;">`;
     html += `<div class="timeline-day-col">`;
     for (let h = 0; h < 24; h++) {
-      html += `<div class="timeline-hour-slot" onclick="App.openEventModal('${ds}', null, '${String(h).padStart(2,'0')}:00')"></div>`;
+      html += `<div class="timeline-hour-slot" data-slot-date="${ds}" data-slot-time="${String(h).padStart(2,'0')}:00"></div>`;
     }
 
     events.forEach(ev => {
@@ -2009,7 +2039,7 @@ const App = {
       }
       html += `<div class="timeline-event-card ${ev.type}" 
                     style="top:${top}px;height:${height}px;padding:6px 12px;" 
-                    onclick="event.stopPropagation();App.showEventDetail('${ev.id}', this)">
+                    data-event-id="${ev.id}">
         <div style="font-weight:700;font-size:0.85rem">${ev.title}</div>
         <div>⏰ ${ev.startTime ? ev.startTime + (ev.endTime ? ' – ' + ev.endTime : '') : 'ตลอดวัน'} | 📍 ${ev.location || 'ไม่ระบุสถานที่'} | 👤 ${this.getUserName(ev.assignee)}</div>
       </div>`;
@@ -2061,20 +2091,47 @@ const App = {
 
       <div style="font-size:0.75rem;font-weight:700;color:var(--text2);margin-top:10px">เปลี่ยนสถานะทันที:</div>
       <div class="quick-status-bar">
-        <button class="status-pill-btn todo${ev.status === 'todo' ? ' active' : ''}" onclick="App.changeStatusInstant('${ev.id}','todo',this)">รอดำเนินการ</button>
-        <button class="status-pill-btn doing${ev.status === 'doing' ? ' active' : ''}" onclick="App.changeStatusInstant('${ev.id}','doing',this)">กำลังทำ</button>
-        <button class="status-pill-btn done${ev.status === 'done' ? ' active' : ''}" onclick="App.changeStatusInstant('${ev.id}','done',this)">เสร็จแล้ว</button>
+        <button class="status-pill-btn todo${ev.status === 'todo' ? ' active' : ''}" data-status="todo" data-id="${ev.id}">รอดำเนินการ</button>
+        <button class="status-pill-btn doing${ev.status === 'doing' ? ' active' : ''}" data-status="doing" data-id="${ev.id}">กำลังทำ</button>
+        <button class="status-pill-btn done${ev.status === 'done' ? ' active' : ''}" data-status="done" data-id="${ev.id}">เสร็จแล้ว</button>
       </div>
 
       ${canManage ? `
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="App.openEventModal(null, App.events.find(e=>e.id==='${id}'));this.closest('.detail-popup').remove()">✏️ แก้ไข</button>
-        <button class="btn btn-danger btn-sm" style="flex:1" onclick="App.deleteEvent('${id}');this.closest('.detail-popup').remove()">🗑️ ลบ</button>
+        <button class="btn btn-secondary btn-sm" id="btn-edit-popup" style="flex:1">✏️ แก้ไข</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-popup" style="flex:1">🗑️ ลบ</button>
       </div>` : `
       <div style="font-size:0.72rem;color:var(--text3);text-align:center;margin-top:8px">เฉพาะผู้รับผิดชอบหรือหัวหน้าแผนกจึงจะแก้ไข/ลบงานนี้ได้</div>`}
     `;
 
     document.body.appendChild(popup);
+
+    // Event listeners inside popup
+    popup.querySelectorAll('.status-pill-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const st = e.currentTarget.dataset.status;
+        this.changeStatusInstant(id, st);
+        popup.remove();
+      });
+    });
+
+    const editBtn = popup.querySelector('#btn-edit-popup');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        popup.remove();
+        this.openEventModal(null, ev);
+      });
+    }
+
+    const delBtn = popup.querySelector('#btn-delete-popup');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        popup.remove();
+        this.deleteEvent(ev.id);
+      });
+    }
+
     setTimeout(() => {
       const clickHandler = (e) => {
         if (!popup.contains(e.target)) {
@@ -2086,61 +2143,7 @@ const App = {
     }, 100);
   },
 
-  // ---------- OPTIMISTIC UPDATE: CHANGE STATUS ----------
-  async changeStatusInstant(id, status, btn) {
-    const ev = this.events.find(e => e.id === id);
-    if (!ev) return;
-
-    const u = this.currentUser;
-    if (u.role === 'staff' && ev.assignee !== u.email) {
-      this.showToast('ไม่มีสิทธิ์เปลี่ยนสถานะงานของผู้อื่น', 'error');
-      return;
-    }
-
-    const previousStatus = ev.status;
-    const previousUpdatedAt = ev.updatedAt;
-
-    // Optimistic Update: แสดงผลทันที
-    ev.status = status;
-    ev.updatedAt = getNowTimestamp();
-    this.renderCalendar();
-    this._checkNotifications();
-    this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
-
-    // ส่งสัญญาณ Real-time ไปยังทุกแท็บ/หน้าต่าง
-    this._broadcastChange({
-      type: 'status_change',
-      id: id,
-      status: status,
-      updatedAt: ev.updatedAt,
-      sender: u.email
-    });
-
-    // บันทึก Firestore
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('events').doc(id).update({
-          status: status,
-          updatedAt: ev.updatedAt,
-          updatedBy: u.email
-        });
-      } catch (err) {
-        // Rollback หากผิดพลาด
-        ev.status = previousStatus;
-        ev.updatedAt = previousUpdatedAt;
-        this.renderCalendar();
-        this.showToast('บันทึกลง Firestore ไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      this._saveCache();
-    }
-
-    // ซิงก์ลง Google Sheets เบื้องหลัง
-    this._syncToGoogleSheets('updateStatus', { id, status });
-  },
-
-  // ---------- EVENT MODAL & CONCURRENT DETECTION ----------
+  // ---------- EVENT MODAL ----------
   openEventModal(dateStr, ev, timeStr = '') {
     const isEdit = !!ev;
     const u = this.currentUser;
@@ -2158,12 +2161,6 @@ const App = {
         this.showToast('คุณไม่มีสิทธิ์แก้ไขงานนี้', 'error');
         return;
       }
-
-      this.currentlyEditingId = ev.id;
-      this.currentlyEditingTimestamp = ev.updatedAt;
-    } else {
-      this.currentlyEditingId = null;
-      this.currentlyEditingTimestamp = null;
     }
 
     const defaultStart = isEdit ? ev.start : (dateStr || this.toYMD(new Date()));
@@ -2181,12 +2178,9 @@ const App = {
       <div class="modal">
         <div class="modal-header">
           <div class="modal-title">${isEdit ? '✏️ แก้ไขงาน' : '➕ เพิ่มงานใหม่'}</div>
-          <button class="close-btn" onclick="App.closeEventModal()">✕</button>
+          <button class="close-btn" id="modal-close-btn">✕</button>
         </div>
         <div class="modal-body">
-          <!-- Concurrent alert banner -->
-          <div id="concurrent-warning-banner" class="concurrent-warning-banner" style="display:none"></div>
-
           <div class="form-group">
             <label class="form-label">ชื่องาน / รายการปฏิบัติงาน <span style="color:red">*</span></label>
             <input class="form-control" id="ev-title" value="${isEdit ? ev.title : ''}" placeholder="ระบุชื่องาน">
@@ -2250,211 +2244,33 @@ const App = {
           </div>
         </div>
         <div class="modal-footer">
-          ${isEdit ? `<button class="btn btn-danger" onclick="App.deleteEvent('${ev.id}');App.closeEventModal()" style="margin-right:auto">🗑️ ลบงาน</button>` : ''}
-          <button class="btn btn-secondary" onclick="App.closeEventModal()">ยกเลิก</button>
-          <button class="btn btn-primary" onclick="App.saveEvent(${isEdit ? `'${ev.id}'` : 'null'})">💾 บันทึก</button>
+          ${isEdit ? `<button class="btn btn-danger" id="modal-delete-btn" style="margin-right:auto">🗑️ ลบงาน</button>` : ''}
+          <button class="btn btn-secondary" id="modal-cancel-btn">ยกเลิก</button>
+          <button class="btn btn-primary" id="modal-save-btn">💾 บันทึก</button>
         </div>
       </div>
     `;
 
     document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if (e.target === modal) App.closeEventModal(); });
+
+    modal.querySelector('#modal-close-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('#modal-cancel-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('#modal-save-btn').addEventListener('click', () => this.saveEvent(isEdit ? ev.id : null));
+
+    if (isEdit) {
+      modal.querySelector('#modal-delete-btn').addEventListener('click', () => this.deleteEvent(ev.id));
+    }
+
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   },
 
-  closeEventModal() {
-    this.currentlyEditingId = null;
-    this.currentlyEditingTimestamp = null;
-    const modal = document.getElementById('event-modal');
-    if (modal) modal.remove();
-  },
-
-  // ---------- OPTIMISTIC UPDATE: SAVE EVENT ----------
-  async saveEvent(editId) {
-    const title     = document.getElementById('ev-title').value.trim();
-    const type      = document.getElementById('ev-type').value;
-    const status    = document.getElementById('ev-status').value;
-    const assignee  = document.getElementById('ev-assignee').value;
-    const start     = document.getElementById('ev-start').value;
-    const end       = document.getElementById('ev-end').value || start;
-    const startTime = document.getElementById('ev-startTime').value;
-    const endTime   = document.getElementById('ev-endTime').value;
-    const location  = document.getElementById('ev-location').value.trim();
-    const detail    = document.getElementById('ev-detail').value.trim();
-
-    if (!title) { this.showToast('กรุณาระบุชื่องาน', 'warning'); return; }
-    if (!start) { this.showToast('กรุณาระบุวันเริ่มต้น', 'warning'); return; }
-    if (end < start) { this.showToast('วันสิ้นสุดต้องไม่น้อยกว่าวันเริ่มต้น', 'warning'); return; }
-
-    const id = editId || genId();
-    const nowStamp = getNowTimestamp();
-    const targetUser = this.users.find(u => u.email === assignee);
-    const department = targetUser ? (targetUser.department || '') : '';
-
-    const eventData = {
-      id, title, type, status, assignee, start, end, startTime, endTime, location, detail,
-      department: department,
-      updatedAt: nowStamp,
-      updatedBy: this.currentUser ? this.currentUser.email : ''
-    };
-
-    // Optimistic Update: อัปเดต UI ทันที
-    const oldEventsBackup = [...this.events];
-    const idx = this.events.findIndex(e => e.id === id);
-    if (idx !== -1) {
-      this.events[idx] = eventData;
-      this.showToast('แก้ไขงานสำเร็จ', 'success');
-    } else {
-      this.events.push(eventData);
-      this.showToast('เพิ่มงานใหม่สำเร็จ', 'success');
-    }
-
-    this.closeEventModal();
-    this.renderCalendar();
-    this._checkNotifications();
-
-    // Broadcast ไปยังทุกแท็บ/เครื่องทันที
-    this._broadcastChange({
-      type: 'event_upsert',
-      event: eventData,
-      sender: this.currentUser ? this.currentUser.email : ''
-    });
-
-    // บันทึกลง Firestore
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('events').doc(id).set(eventData, { merge: true });
-      } catch (err) {
-        this.events = oldEventsBackup;
-        this.renderCalendar();
-        this.showToast('บันทึกล้มเหลว (Rollback): ' + err.message, 'error');
-        return;
-      }
-    } else {
-      this._saveCache();
-    }
-
-    // ซิงก์ลง Google Sheets (Apps Script Web App)
-    this._syncToGoogleSheets('upsertEvent', eventData);
-  },
-
-  async deleteEvent(id) {
-    const ev = this.events.find(e => e.id === id);
-    if (!ev) return;
-    if (!confirm(`คุณต้องการลบงาน "${ev.title}" ใช่หรือไม่?`)) return;
-
-    const oldEventsBackup = [...this.events];
-    this.events = this.events.filter(e => e.id !== id);
-    this.renderCalendar();
-    this._checkNotifications();
-    this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
-
-    this._broadcastChange({
-      type: 'event_delete',
-      id: id,
-      sender: this.currentUser ? this.currentUser.email : ''
-    });
-
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('events').doc(id).delete();
-      } catch (err) {
-        this.events = oldEventsBackup;
-        this.renderCalendar();
-        this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      this._saveCache();
-    }
-
-    this._syncToGoogleSheets('deleteEvent', { id });
-  },
-
-  // ---------- GOOGLE SHEETS BIDIRECTIONAL SYNC ----------
-  async _syncToGoogleSheets(action, payload) {
-    if (!this.sheetsApiUrl) return;
-    try {
-      await fetch(this.sheetsApiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: action,
-          userEmail: this.currentUser ? this.currentUser.email : '',
-          ...payload
-        })
-      });
-    } catch (err) {
-      console.warn('Sync to Google Sheets failed:', err);
-    }
-  },
-
-  // นำเข้าข้อมูลจาก Google Sheets สู่ Firestore (Admin Only)
-  async importFromGoogleSheets() {
-    if (!this.sheetsApiUrl) {
-      this.showToast('กรุณาตั้งค่า Google Apps Script Web App URL ก่อน', 'warning');
-      this.openConfigModal();
-      return;
-    }
-    if (this.currentUser.role !== 'admin') {
-      this.showToast('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่นำเข้าข้อมูลได้', 'error');
-      return;
-    }
-
-    if (!confirm('ต้องการดึงข้อมูลงานทั้งหมดจาก Google Sheets เพื่ออัปเดตลงใน Firestore หรือไม่?')) return;
-
-    this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
-    try {
-      const resp = await fetch(this.sheetsApiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getEvents' })
-      });
-      const res = await resp.json();
-
-      if (!res.success || !res.data) {
-        throw new Error(res.error || 'ไม่สามารถดึงข้อมูลได้');
-      }
-
-      const sheetEvents = res.data;
-      if (sheetEvents.length === 0) {
-        this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
-        return;
-      }
-
-      this.showLoading(true, `กำลังนำเข้า ${sheetEvents.length} รายการสู่ Firestore...`);
-
-      if (this.db && this.isFirebaseActive) {
-        const batch = this.db.batch();
-        sheetEvents.forEach(item => {
-          if (item.id) {
-            const ref = this.db.collection('events').doc(item.id);
-            batch.set(ref, {
-              ...item,
-              updatedAt: item.updatedAt || getNowTimestamp()
-            }, { merge: true });
-          }
-        });
-        await batch.commit();
-      } else {
-        sheetEvents.forEach(item => {
-          const idx = this.events.findIndex(e => e.id === item.id);
-          if (idx !== -1) this.events[idx] = item;
-          else this.events.push(item);
-        });
-        this._saveCache();
-        this.renderCalendar();
-      }
-
-      this.showToast(`นำเข้าสำเร็จ ${sheetEvents.length} รายการจาก Google Sheets เรียบร้อยแล้ว!`, 'success');
-    } catch (err) {
-      this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
-    }
+  closeModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.remove();
   },
 
   // ---------- NOTIFICATIONS ----------
-  _checkNotifications() {
+  checkNotifications() {
     const today = new Date(); today.setHours(0,0,0,0);
     const d3 = new Date(today); d3.setDate(d3.getDate() + 3);
     const todayStr = this.toYMD(today);
@@ -2482,7 +2298,7 @@ const App = {
   toggleNotifications() {
     const dd = document.getElementById('notif-dropdown');
     if (dd.style.display === 'none' || !dd.style.display) {
-      this._renderNotifications();
+      this.renderNotifications();
       dd.style.display = 'block';
       setTimeout(() => {
         const handler = (e) => {
@@ -2498,7 +2314,7 @@ const App = {
     }
   },
 
-  _renderNotifications() {
+  renderNotifications() {
     const dd = document.getElementById('notif-dropdown');
     const notifs = this._notifications || [];
 
@@ -2507,13 +2323,22 @@ const App = {
       html += `<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.85rem">ไม่มีงานที่ใกล้ครบกำหนดใน 3 วัน</div>`;
     } else {
       notifs.forEach(ev => {
-        html += `<div class="notif-item" onclick="App.openEventModal(null, App.events.find(e=>e.id==='${ev.id}'));document.getElementById('notif-dropdown').style.display='none'">
+        html += `<div class="notif-item" data-notif-id="${ev.id}">
           <div class="notif-title">${ev.title}</div>
           <div class="notif-time">⏳ ครบกำหนด: ${this.formatThaiDate(ev.end || ev.start)} | ผู้รับผิดชอบ: ${this.getUserName(ev.assignee)}</div>
         </div>`;
       });
     }
     dd.innerHTML = html;
+
+    dd.querySelectorAll('.notif-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.notifId;
+        const ev = this.events.find(x => x.id === id);
+        dd.style.display = 'none';
+        if (ev) this.openEventModal(null, ev);
+      });
+    });
   },
 
   // ---------- DASHBOARD ----------
@@ -2550,12 +2375,12 @@ const App = {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:1.3rem;font-weight:800;color:var(--text)">📊 แดชบอร์ดสรุปการปฏิบัติงาน</h2>
-          <p style="font-size:0.85rem;color:var(--text2)">สรุปภาพรวมและสถิติงานตามสถานะและผู้รับผิดชอบ</p>
+          <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจาก Firestore ทุกเครื่อง</p>
         </div>
         <div style="display:flex;gap:8px">
-          ${this.currentUser.role === 'admin' ? `<button class="btn btn-secondary btn-sm" onclick="App.importFromGoogleSheets()">📥 นำเข้าจากชีต</button>` : ''}
-          <button class="btn btn-secondary btn-sm" onclick="App.exportExcel()">📥 ส่งออก Excel (CSV)</button>
-          <button class="btn btn-primary btn-sm" onclick="App.exportPDF()">🖨️ ส่งออก PDF / พิมพ์</button>
+          ${(this.currentUser.role === 'admin' && googleSheetsApiUrl) ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้าจากชีต</button>` : ''}
+          <button class="btn btn-secondary btn-sm" id="btn-export-excel">📥 ส่งออก Excel (CSV)</button>
+          <button class="btn btn-primary btn-sm" id="btn-export-pdf">🖨️ ส่งออก PDF / พิมพ์</button>
         </div>
       </div>
 
@@ -2624,6 +2449,12 @@ const App = {
         </div>`}
       </div>
     `;
+
+    const btnImp = wrap.querySelector('#btn-import-dash');
+    if (btnImp) btnImp.addEventListener('click', () => this.importFromGoogleSheets());
+
+    wrap.querySelector('#btn-export-excel').addEventListener('click', () => this.exportExcel());
+    wrap.querySelector('#btn-export-pdf').addEventListener('click', () => window.print());
   },
 
   exportExcel() {
@@ -2661,11 +2492,7 @@ const App = {
     this.showToast('ส่งออกไฟล์ Excel (CSV) สำเร็จ', 'success');
   },
 
-  exportPDF() {
-    window.print();
-  },
-
-  // ---------- USERS & HOLIDAYS MANAGEMENT ----------
+  // ---------- USER MANAGEMENT (ADMIN) ----------
   renderUsers() {
     if (this.currentUser.role !== 'admin') {
       document.getElementById('page-users').innerHTML = '<div style="padding:20px;color:var(--text2)">คุณไม่มีสิทธิ์เข้าถึงส่วนนี้ (เฉพาะ Admin)</div>';
@@ -2677,9 +2504,9 @@ const App = {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:1.2rem;font-weight:800;color:var(--text)">👥 จัดการรายชื่อผู้ใช้</h2>
-          <p style="font-size:0.85rem;color:var(--text2)">กำหนดสิทธิ์ Admin / Head / Staff</p>
+          <p style="font-size:0.85rem;color:var(--text2)">กำหนดสิทธิ์ Admin / Head / Staff ใน Firestore</p>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="App.openUserModal(null)">➕ เพิ่มผู้ใช้</button>
+        <button class="btn btn-primary btn-sm" id="btn-add-user">➕ เพิ่มผู้ใช้</button>
       </div>
 
       <div class="dash-section" style="padding:0;overflow:hidden">
@@ -2700,14 +2527,27 @@ const App = {
               <td>${u.department || '-'}</td>
               <td><span class="chip ${u.role}">${this.getRoleLabel(u.role)}</span></td>
               <td style="text-align:right">
-                <button class="btn btn-secondary btn-sm" onclick='App.openUserModal(${JSON.stringify(u)})'>✏️ แก้ไข</button>
-                <button class="btn btn-danger btn-sm" onclick="App.deleteUser('${u.email}')">🗑️ ลบ</button>
+                <button class="btn btn-secondary btn-sm btn-edit-user" data-email="${u.email}">✏️ แก้ไข</button>
+                <button class="btn btn-danger btn-sm btn-del-user" data-email="${u.email}">🗑️ ลบ</button>
               </td>
             </tr>`).join('')}
           </tbody>
         </table>
       </div>
     `;
+
+    wrap.querySelector('#btn-add-user').addEventListener('click', () => this.openUserModal(null));
+    wrap.querySelectorAll('.btn-edit-user').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const u = this.users.find(x => x.email === e.currentTarget.dataset.email);
+        this.openUserModal(u);
+      });
+    });
+    wrap.querySelectorAll('.btn-del-user').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.deleteUser(e.currentTarget.dataset.email);
+      });
+    });
   },
 
   openUserModal(user) {
@@ -2719,7 +2559,7 @@ const App = {
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title">${isEdit ? '✏️ แก้ไขข้อมูลผู้ใช้' : '➕ เพิ่มผู้ใช้ใหม่'}</div>
-          <button class="close-btn" onclick="document.getElementById('user-modal').remove()">✕</button>
+          <button class="close-btn" id="user-modal-close">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -2746,71 +2586,20 @@ const App = {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="document.getElementById('user-modal').remove()">ยกเลิก</button>
-          <button class="btn btn-primary" onclick="App.saveUser(${isEdit ? `'${user.email}'` : 'null'})">💾 บันทึก</button>
+          <button class="btn btn-secondary" id="user-modal-cancel">ยกเลิก</button>
+          <button class="btn btn-primary" id="user-modal-save">💾 บันทึก</button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
+
+    modal.querySelector('#user-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#user-modal-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#user-modal-save').addEventListener('click', () => this.saveUser(isEdit ? user.email : null));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   },
 
-  async saveUser(editEmail) {
-    const email = document.getElementById('u-email').value.trim().toLowerCase();
-    const name  = document.getElementById('u-name').value.trim();
-    const dept  = document.getElementById('u-dept').value.trim();
-    const role  = document.getElementById('u-role').value;
-
-    if (!email) { this.showToast('กรุณาระบุอีเมล', 'warning'); return; }
-    if (!name)  { this.showToast('กรุณาระบุชื่อ-นามสกุล', 'warning'); return; }
-
-    const userData = { email, name, department: dept, role };
-
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('users').doc(email).set(userData, { merge: true });
-        this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
-      } catch (err) {
-        this.showToast('บันทึกผู้ใช้ไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      const idx = this.users.findIndex(u => u.email === email);
-      if (idx !== -1) this.users[idx] = userData;
-      else this.users.push(userData);
-      this._saveCache();
-      this.renderUsers();
-      this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
-    }
-
-    document.getElementById('user-modal').remove();
-    this._syncToGoogleSheets(editEmail ? 'updateUser' : 'createUser', userData);
-  },
-
-  async deleteUser(email) {
-    if (email === this.currentUser.email) {
-      this.showToast('ไม่สามารถลบบัญชีของตนเองที่กำลังใช้งานอยู่ได้', 'error');
-      return;
-    }
-    if (!confirm(`ต้องการลบผู้ใช้ ${email} ใช่หรือไม่?`)) return;
-
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('users').doc(email).delete();
-        this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
-      } catch (err) {
-        this.showToast('ลบผู้ใช้ไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      this.users = this.users.filter(u => u.email !== email);
-      this._saveCache();
-      this.renderUsers();
-      this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
-    }
-
-    this._syncToGoogleSheets('deleteUser', { email });
-  },
-
+  // ---------- HOLIDAY MANAGEMENT (ADMIN) ----------
   renderHolidays() {
     if (this.currentUser.role !== 'admin') {
       document.getElementById('page-holidays').innerHTML = '<div style="padding:20px;color:var(--text2)">คุณไม่มีสิทธิ์เข้าถึงส่วนนี้ (เฉพาะ Admin)</div>';
@@ -2825,7 +2614,7 @@ const App = {
           <h2 style="font-size:1.2rem;font-weight:800;color:var(--text)">🎌 จัดการวันหยุดนักขัตฤกษ์</h2>
           <p style="font-size:0.85rem;color:var(--text2)">วันหยุดจะถูกไฮไลต์บนปฏิทินของทุกเครื่อง</p>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="App.openHolidayModal()">➕ เพิ่มวันหยุด</button>
+        <button class="btn btn-primary btn-sm" id="btn-add-hol">➕ เพิ่มวันหยุด</button>
       </div>
 
       <div class="dash-section" style="padding:0;overflow:hidden">
@@ -2844,13 +2633,18 @@ const App = {
               <td>${h.name}</td>
               <td><span class="chip hol">${h.type === 'public' ? 'วันหยุดราชการ' : 'วันหยุดองค์กร'}</span></td>
               <td style="text-align:right">
-                <button class="btn btn-danger btn-sm" onclick="App.deleteHoliday('${h.date}')">🗑️ ลบ</button>
+                <button class="btn btn-danger btn-sm btn-del-hol" data-date="${h.date}">🗑️ ลบ</button>
               </td>
             </tr>`).join('')}
           </tbody>
         </table>
       </div>
     `;
+
+    wrap.querySelector('#btn-add-hol').addEventListener('click', () => this.openHolidayModal());
+    wrap.querySelectorAll('.btn-del-hol').forEach(btn => {
+      btn.addEventListener('click', (e) => this.deleteHoliday(e.currentTarget.dataset.date));
+    });
   },
 
   openHolidayModal() {
@@ -2861,7 +2655,7 @@ const App = {
       <div class="modal" style="max-width:400px">
         <div class="modal-header">
           <div class="modal-title">➕ เพิ่มวันหยุดใหม่</div>
-          <button class="close-btn" onclick="document.getElementById('hol-modal').remove()">✕</button>
+          <button class="close-btn" id="hol-modal-close">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -2881,149 +2675,114 @@ const App = {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="document.getElementById('hol-modal').remove()">ยกเลิก</button>
-          <button class="btn btn-primary" onclick="App.saveHoliday()">💾 บันทึก</button>
+          <button class="btn btn-secondary" id="hol-modal-cancel">ยกเลิก</button>
+          <button class="btn btn-primary" id="hol-modal-save">💾 บันทึก</button>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
+
+    modal.querySelector('#hol-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#hol-modal-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#hol-modal-save').addEventListener('click', () => this.saveHoliday());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   },
 
-  async saveHoliday() {
-    const date = document.getElementById('h-date').value;
-    const name = document.getElementById('h-name').value.trim();
-    const type = document.getElementById('h-type').value;
+  // ---------- BIND DOM EVENTS ----------
+  bindDOMEvents() {
+    // Google Sign-In
+    document.getElementById('btn-google-login').addEventListener('click', () => this.loginWithGoogle());
 
-    if (!date) { this.showToast('กรุณาระบุวันที่', 'warning'); return; }
-    if (!name) { this.showToast('กรุณาระบุชื่อวันหยุด', 'warning'); return; }
+    // Sidebar & View
+    document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
 
-    const holidayData = { date, name, type };
+    document.getElementById('dark-btn').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('app_theme', next);
+      document.getElementById('dark-btn').textContent = next === 'dark' ? '☀️' : '🌙';
+    });
 
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('holidays').doc(date).set(holidayData);
-        this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
-      } catch (err) {
-        this.showToast('บันทึกวันหยุดไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      const existing = this.holidays.find(h => h.date === date);
-      if (existing) { existing.name = name; existing.type = type; }
-      else { this.holidays.push(holidayData); }
-      this._saveCache();
-      this.renderHolidays();
+    document.getElementById('btn-logout').addEventListener('click', () => this.logout());
+    document.getElementById('notif-btn').addEventListener('click', () => this.toggleNotifications());
+
+    // Navigation items
+    document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        this.navigate(e.currentTarget.dataset.nav);
+      });
+    });
+
+    const navImp = document.getElementById('nav-import-sheets');
+    if (navImp) {
+      navImp.addEventListener('click', () => this.importFromGoogleSheets());
+    }
+
+    // View tabs
+    document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        this.currentView = e.currentTarget.dataset.view;
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t === e.currentTarget));
+        this.renderCalendar();
+      });
+    });
+
+    // Calendar buttons
+    document.getElementById('btn-today').addEventListener('click', () => {
+      this.currentDate = new Date();
       this.renderCalendar();
-      this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
-    }
-
-    document.getElementById('hol-modal').remove();
-    this._syncToGoogleSheets('createHoliday', holidayData);
-  },
-
-  async deleteHoliday(date) {
-    if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
-
-    if (this.db && this.isFirebaseActive) {
-      try {
-        await this.db.collection('holidays').doc(date).delete();
-        this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
-      } catch (err) {
-        this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
-        return;
-      }
-    } else {
-      this.holidays = this.holidays.filter(h => h.date !== date);
-      this._saveCache();
-      this.renderHolidays();
+    });
+    document.getElementById('btn-nav-prev').addEventListener('click', () => {
+      const d = this.currentDate;
+      if (this.currentView === 'month')     d.setMonth(d.getMonth() - 1);
+      else if (this.currentView === 'week') d.setDate(d.getDate() - 7);
+      else                                  d.setDate(d.getDate() - 1);
       this.renderCalendar();
-      this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
-    }
+    });
+    document.getElementById('btn-nav-next').addEventListener('click', () => {
+      const d = this.currentDate;
+      if (this.currentView === 'month')     d.setMonth(d.getMonth() + 1);
+      else if (this.currentView === 'week') d.setDate(d.getDate() + 7);
+      else                                  d.setDate(d.getDate() + 1);
+      this.renderCalendar();
+    });
 
-    this._syncToGoogleSheets('deleteHoliday', { date });
-  },
+    // Filters
+    ['f-assignee', 'f-type', 'f-status'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        this.filters.assignee = document.getElementById('f-assignee').value;
+        this.filters.type     = document.getElementById('f-type').value;
+        this.filters.status   = document.getElementById('f-status').value;
+        this.renderCalendar();
+      });
+    });
 
-  // ---------- CONFIG MODAL (FIREBASE & SHEETS) ----------
-  openConfigModal() {
-    const fbVal = this.firebaseConfig ? JSON.stringify(this.firebaseConfig, null, 2) : '';
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'config-modal';
-    modal.innerHTML = `
-      <div class="modal" style="max-width:540px">
-        <div class="modal-header">
-          <div class="modal-title">⚙️ ตั้งค่าการเชื่อมต่อ Real-time & Google Sheets</div>
-          <button class="close-btn" onclick="document.getElementById('config-modal').remove()">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">Firebase Config JSON Object <span style="color:var(--primary)">*สำหรับ Cloud Real-time ข้ามเครือข่าย</span></label>
-            <textarea class="form-control" id="cfg-firebase" style="font-family:monospace;font-size:0.8rem;min-height:120px" placeholder='{\n  "apiKey": "AIzaSy...",\n  "authDomain": "your-project.firebaseapp.com",\n  "projectId": "your-project-id",\n  "storageBucket": "...",\n  "messagingSenderId": "...",\n  "appId": "..."\n}'>${fbVal}</textarea>
-            <small style="color:var(--text3);display:block;margin-top:4px">
-              คัดลอกจาก Firebase Console → Project Settings → Web App Config
-            </small>
-          </div>
+    // Add event button
+    document.getElementById('btn-open-create-event').addEventListener('click', () => {
+      this.openEventModal(null, null);
+    });
 
-          <div class="form-group" style="margin-top:14px">
-            <label class="form-label">Google Apps Script Web App URL <span style="color:var(--text3)">(สำหรับซิงก์ Google Sheets)</span></label>
-            <input class="form-control" id="cfg-sheets-url" value="${this.sheetsApiUrl}" placeholder="https://script.google.com/macros/s/.../exec">
-            <small style="color:var(--text3);display:block;margin-top:4px">
-              นำ URL ที่ได้จาก Deploy Apps Script มาวางที่นี่ เพื่อซิงก์ข้อมูลลง Google Sheets อัตโนมัติ
-            </small>
-          </div>
-
-          <div style="background:var(--surface2);padding:10px 14px;border-radius:8px;font-size:0.8rem;line-height:1.4">
-            💡 <strong>หมายเหตุ:</strong> ระบบมี Real-time ในตัว ซิงก์ข้ามแท็บและหน้าต่างได้ทันทีโดยไม่ต้องตั้งค่าใดๆ
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="App.clearConfig()">ล้างค่าทั้งหมด</button>
-          <button class="btn btn-primary" onclick="App.saveConfig()">💾 บันทึกการตั้งค่า</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  },
-
-  saveConfig() {
-    const fbText = document.getElementById('cfg-firebase').value.trim();
-    const sheetsUrl = document.getElementById('cfg-sheets-url').value.trim();
-
-    if (fbText) {
-      try {
-        const parsed = JSON.parse(fbText);
-        this.firebaseConfig = parsed;
-        localStorage.setItem('app_firebase_config', JSON.stringify(parsed));
-      } catch (e) {
-        this.showToast('รูปแบบ Firebase JSON ไม่ถูกต้อง: ' + e.message, 'error');
+    // Event delegation on page-calendar (Month, Week, Day click handlers)
+    document.getElementById('page-calendar').addEventListener('click', (e) => {
+      const pill = e.target.closest('.event-pill, .timeline-event-card');
+      if (pill && pill.dataset.eventId) {
+        e.stopPropagation();
+        this.showEventDetail(pill.dataset.eventId, pill);
         return;
       }
-    } else {
-      this.firebaseConfig = null;
-      localStorage.removeItem('app_firebase_config');
-    }
-
-    this.sheetsApiUrl = sheetsUrl;
-    localStorage.setItem('gas_api_url', sheetsUrl);
-
-    document.getElementById('config-modal').remove();
-    this.showToast('บันทึกการตั้งค่าเรียบร้อยแล้ว กำลังเริ่มต้นระบบใหม่...', 'success');
-
-    setTimeout(() => {
-      this.initFirebase();
-      if (this.currentUser) this._startRealtimeListeners();
-    }, 500);
-  },
-
-  clearConfig() {
-    if (!confirm('ต้องการล้างการตั้งค่า Firebase และ Google Sheets หรือไม่?')) return;
-    localStorage.removeItem('app_firebase_config');
-    localStorage.removeItem('gas_api_url');
-    this.firebaseConfig = null;
-    this.sheetsApiUrl = '';
-    document.getElementById('config-modal').remove();
-    this.initFirebase();
-    this.showToast('ล้างการตั้งค่าเรียบร้อย', 'info');
+      const dayCell = e.target.closest('.month-day[data-date]');
+      if (dayCell && !e.target.closest('.more-events')) {
+        this.openEventModal(dayCell.dataset.date, null);
+        return;
+      }
+      const slot = e.target.closest('.timeline-hour-slot[data-slot-date]');
+      if (slot) {
+        this.openEventModal(slot.dataset.slotDate, null, slot.dataset.slotTime || '');
+      }
+    });
   },
 
   // ---------- UI UTILITIES ----------
@@ -3051,6 +2810,7 @@ const App = {
   }
 };
 
+// Start application
 document.addEventListener('DOMContentLoaded', () => App.init());
 </script>
 </body>
