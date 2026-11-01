@@ -173,3 +173,30 @@ npm start
 1. ใน Google Sheets ให้ไปที่ **ไฟล์ (File) → ดาวน์โหลด (Download) → ค่าที่คั่นด้วยเครื่องหมายจุลภาค (.csv)**
 2. ในเว็บแอปพลิเคชัน (ล็อกอินเป็น Admin) คลิกปุ่ม **"📥 นำเข้า CSV"**
 3. เลือกไฟล์ CSV ที่ดาวน์โหลดมา ระบบจะทำการ Upsert งานทั้งหมดลงในไฟล์ `data/events.json` และทุกเครื่องจะเห็นข้อมูลใหม่ทันที
+
+---
+
+## ⚡ การเชื่อมต่อตรงผ่าน Google Apps Script Web App (API Sync)
+
+หากต้องการดึงข้อมูลหรือซิงก์ข้อมูลตรงกับ Google Sheets ผ่าน Web App API:
+
+1. **ตั้งค่าใน Google Spreadsheet:**
+   - ไปที่ **ส่วนขยาย (Extensions) → Apps Script**
+   - นำโค้ดจาก `Code.gs` ไปวางแล้วบันทึก
+   - คลิก **Deploy → New deployment**
+   - ประเภท: **Web app**
+   - Execute as: **Me**
+   - Who has access: **Anyone** *(สำคัญมาก ต้องเลือก Anyone เพื่อให้เบราว์เซอร์เรียก API ได้)*
+   - คัดลอก Web App URL ที่ลงท้ายด้วย `/exec`
+
+2. **ใส่ URL ในไฟล์ `config.js`:**
+   เปิดไฟล์ `config.js` (และ `public/config.js`) แล้ววาง URL:
+   ```javascript
+   export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby.../exec";
+   ```
+
+3. **มาตรฐานการเรียก API ที่ปลอดภัยจากปัญหา CORS / Failed to fetch:**
+   - **GET Request (เช่น `getEvents`, `ping`):** เรียกผ่าน `fetch(APPS_SCRIPT_URL + '?action=getEvents')` โดยไม่ใส่ Headers และไม่ใช้ credentials เพื่อป้องกัน CORS Preflight
+   - **POST Request (เช่น `batchUpsertEvents`):** เรียกผ่าน `fetch(APPS_SCRIPT_URL, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({...}), redirect: 'follow' })`
+   - เมื่อเปิดแอป ระบบจะยิง `?action=ping` ทดสอบให้อัตโนมัติ หากมีปัญหาจะแจ้งเตือนให้ตรวจสอบสิทธิ์และ URL ทันที
+

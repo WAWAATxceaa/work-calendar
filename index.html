@@ -1144,7 +1144,8 @@ import {
   onSnapshot,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { firebaseConfig, googleSheetsApiUrl } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js";
+import { APPS_SCRIPT_URL } from "./config.js";
 
 // Sample Data Initial Seeds (ใส่เมื่อ collection events ว่างเท่านั้น)
 const SEED_USERS = [
@@ -1241,9 +1242,10 @@ const App = {
       this.auth = getAuth(app);
       this.db = getFirestore(app);
 
-      // แสดงเมนูนำเข้าจากชีตถ้ามี URL
-      if (googleSheetsApiUrl) {
+      // แสดงเมนูนำเข้าจากชีตถ้ามี APPS_SCRIPT_URL และทดสอบเชื่อมต่อ (ping)
+      if (APPS_SCRIPT_URL) {
         document.getElementById('nav-import-sheets').style.display = 'flex';
+        this.testAppsScriptPing();
       }
 
       // 4. ติดตามสถานะการเข้าสู่ระบบ (Authentication State)
@@ -1588,30 +1590,83 @@ const App = {
     }
   },
 
-  // ---------- GOOGLE SHEETS SYNC & IMPORT ----------
-  async syncToGoogleSheets(action, payload) {
-    if (!googleSheetsApiUrl) return;
+  // ---------- GOOGLE APPS SCRIPT WEB APP INTEGRATION ----------
+  async testAppsScriptPing() {
+    if (!APPS_SCRIPT_URL) return;
     try {
-      await fetch(googleSheetsApiUrl, {
+      // GET: fetch(APPS_SCRIPT_URL + '?action=ping') ห้ามใส่ headers และห้ามใช้ credentials
+      const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+      const response = await fetch(APPS_SCRIPT_URL + sep + 'action=ping');
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Apps Script ping error:', result.error);
+        this.showToast('เชื่อมต่อ Apps Script ไม่ได้ ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec', 'error');
+      } else {
+        console.log('✅ เชื่อมต่อ Google Apps Script Web App สำเร็จ (ping -> pong):', result);
+      }
+    } catch (err) {
+      console.error('เชื่อมต่อ Apps Script ไม่ได้:', err);
+      this.showToast('เชื่อมต่อ Apps Script ไม่ได้ ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec', 'error');
+    }
+  },
+
+  async syncToGoogleSheets(action, payload) {
+    if (!APPS_SCRIPT_URL) return;
+    try {
+      // POST: ห้ามใช้ application/json เพราะทำให้เกิด CORS preflight
+      const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: action,
           userEmail: this.currentUser ? this.currentUser.email : '',
           ...payload
-        })
+        }),
+        redirect: 'follow'
       });
+      const result = await response.json();
+      if (!result.success) {
+        console.error(`Apps Script [${action}] returned error:`, result.error);
+      }
+      return result;
     } catch (err) {
-      console.warn('Sync to Google Sheets error:', err);
+      console.error(`Apps Script [${action}] failed:`, err);
+    }
+  },
+
+  async syncBatchToGoogleSheets(events) {
+    if (!APPS_SCRIPT_URL) return;
+    try {
+      // POST: fetch(APPS_SCRIPT_URL, { action: 'batchUpsertEvents', events: [...] })
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'batchUpsertEvents',
+          events: events || this.events
+        }),
+        redirect: 'follow'
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Apps Script batchUpsertEvents error:', result.error);
+        this.showToast('ซิงก์ข้อมูลลง Google Sheets ล้มเหลว: ' + (result.error || 'unknown'), 'error');
+      } else {
+        console.log('✅ ซิงก์ข้อมูลลง Google Sheets สำเร็จ:', result);
+      }
+      return result;
+    } catch (err) {
+      console.error('syncBatchToGoogleSheets failed:', err);
+      this.showToast('ซิงก์ข้อมูลลง Google Sheets ล้มเหลว: ' + err.message, 'error');
     }
   },
 
   async importFromGoogleSheets() {
-    if (!googleSheetsApiUrl) {
-      this.showToast('กรุณาระบุ googleSheetsApiUrl ในไฟล์ firebase-config.js', 'warning');
+    if (!APPS_SCRIPT_URL) {
+      this.showToast('กรุณาระบุ APPS_SCRIPT_URL ในไฟล์ config.js', 'warning');
       return;
     }
-    if (this.currentUser.role !== 'admin') {
+    if (this.currentUser && this.currentUser.role !== 'admin') {
       this.showToast('เฉพาะ Admin เท่านั้นที่นำเข้าข้อมูลได้', 'error');
       return;
     }
@@ -1619,15 +1674,17 @@ const App = {
 
     this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
     try {
-      const resp = await fetch(googleSheetsApiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getEvents' })
-      });
-      const res = await resp.json();
-      if (!res.success || !res.data) throw new Error(res.error || 'ดึงข้อมูลไม่สำเร็จ');
+      // GET: fetch(APPS_SCRIPT_URL + '?action=getEvents') ห้ามใส่ headers และห้ามใช้ credentials
+      const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+      const response = await fetch(APPS_SCRIPT_URL + sep + 'action=getEvents');
+      const result = await response.json();
 
-      const sheetEvents = res.data;
+      if (!result.success) {
+        console.error('Apps Script getEvents error:', result.error);
+        throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
+      }
+
+      const sheetEvents = result.data || [];
       if (sheetEvents.length === 0) {
         this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
         return;
@@ -1647,6 +1704,7 @@ const App = {
       await batch.commit();
       this.showToast(`นำเข้าสำเร็จ ${sheetEvents.length} รายการจาก Google Sheets สู่ Firestore แล้ว`, 'success');
     } catch (err) {
+      console.error('นำเข้าข้อมูลล้มเหลว:', err);
       this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
     } finally {
       this.showLoading(false);
@@ -2378,7 +2436,7 @@ const App = {
           <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจาก Firestore ทุกเครื่อง</p>
         </div>
         <div style="display:flex;gap:8px">
-          ${(this.currentUser.role === 'admin' && googleSheetsApiUrl) ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้าจากชีต</button>` : ''}
+          ${(this.currentUser.role === 'admin' && APPS_SCRIPT_URL) ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้าจากชีต</button>` : ''}
           <button class="btn btn-secondary btn-sm" id="btn-export-excel">📥 ส่งออก Excel (CSV)</button>
           <button class="btn btn-primary btn-sm" id="btn-export-pdf">🖨️ ส่งออก PDF / พิมพ์</button>
         </div>

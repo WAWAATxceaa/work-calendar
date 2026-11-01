@@ -1054,6 +1054,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         <div class="nav-item" id="nav-import-csv">
           <span class="nav-icon">📥</span>นำเข้า CSV
         </div>
+        <div class="nav-item" id="nav-import-sheets" style="display:none">
+          <span class="nav-icon">📊</span>นำเข้าจาก Google Sheets
+        </div>
       </div>
 
       <div style="margin-top:auto;padding:16px 20px;font-size:0.75rem;color:var(--text3);border-top:1px solid var(--border)">
@@ -1128,6 +1131,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <!-- Hidden file input for CSV import -->
 <input type="file" id="csv-file-input" accept=".csv" style="display:none">
 
+<!-- Google Apps Script Config -->
+<script src="config.js"></script>
+
 <!-- =========================================================
      APPLICATION CORE (NODE.JS + SSE REAL-TIME)
      ========================================================= -->
@@ -1172,6 +1178,12 @@ const App = {
 
     // 4. ผูกเหตุการณ์ DOM
     this.bindDOMEvents();
+
+    // 5. ทดสอบการเชื่อมต่อ Google Apps Script Web App (ถ้ามี APPS_SCRIPT_URL)
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (scriptUrl) {
+      this.testAppsScriptPing();
+    }
   },
 
   async fetchInitialData() {
@@ -1252,6 +1264,12 @@ const App = {
 
     const isAdmin = (u.role === 'admin');
     document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const navSheets = document.getElementById('nav-import-sheets');
+    if (navSheets) {
+      navSheets.style.display = (isAdmin && scriptUrl) ? 'flex' : 'none';
+    }
 
     this.navigate('calendar');
   },
@@ -1426,6 +1444,110 @@ const App = {
       this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
     } catch (err) {
       this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  // ---------- GOOGLE APPS SCRIPT WEB APP INTEGRATION ----------
+  async testAppsScriptPing() {
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) return;
+    try {
+      // GET: fetch(APPS_SCRIPT_URL + '?action=ping') ห้ามใส่ headers และห้ามใช้ credentials
+      const sep = scriptUrl.includes('?') ? '&' : '?';
+      const response = await fetch(scriptUrl + sep + 'action=ping');
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Apps Script ping error:', result.error);
+        this.showToast('เชื่อมต่อ Apps Script ไม่ได้ ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec', 'error');
+      } else {
+        console.log('✅ เชื่อมต่อ Google Apps Script Web App สำเร็จ (ping -> pong):', result);
+      }
+    } catch (err) {
+      console.error('เชื่อมต่อ Apps Script ไม่ได้:', err);
+      this.showToast('เชื่อมต่อ Apps Script ไม่ได้ ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec', 'error');
+    }
+  },
+
+  async importFromGoogleSheets() {
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) {
+      this.showToast('กรุณาระบุ APPS_SCRIPT_URL ในไฟล์ config.js', 'warning');
+      return;
+    }
+    if (this.currentUser && this.currentUser.role !== 'admin') {
+      this.showToast('เฉพาะ Admin เท่านั้นที่นำเข้าข้อมูลได้', 'error');
+      return;
+    }
+    if (!confirm('ต้องการอ่านข้อมูลจาก Google Sheets เพื่ออัปเดตลงในระบบหรือไม่?')) return;
+
+    this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
+    try {
+      // GET: fetch(APPS_SCRIPT_URL + '?action=getEvents') ห้ามใส่ headers และห้ามใช้ credentials
+      const sep = scriptUrl.includes('?') ? '&' : '?';
+      const response = await fetch(scriptUrl + sep + 'action=getEvents');
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('Apps Script getEvents error:', result.error);
+        throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
+      }
+
+      const sheetEvents = result.data || [];
+      if (sheetEvents.length === 0) {
+        this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
+        return;
+      }
+
+      this.showLoading(true, `กำลังบันทึก ${sheetEvents.length} รายการลงในระบบ...`);
+      let count = 0;
+      for (const item of sheetEvents) {
+        if (!item.id) continue;
+        const res = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...item,
+            updatedAt: item.updatedAt || getNowTimestamp()
+          })
+        });
+        const resData = await res.json();
+        if (resData.success) count++;
+      }
+      this.showToast(`นำเข้าสำเร็จ ${count} รายการจาก Google Sheets แล้ว`, 'success');
+    } catch (err) {
+      console.error('นำเข้าข้อมูลล้มเหลว:', err);
+      this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async syncBatchToGoogleSheets(events) {
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) return;
+    try {
+      // POST: fetch(APPS_SCRIPT_URL, { action: 'batchUpsertEvents', events: [...] })
+      // ห้ามใช้ application/json เพราะทำให้เกิด CORS preflight
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'batchUpsertEvents',
+          events: events || this.events
+        }),
+        redirect: 'follow'
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Apps Script batchUpsertEvents error:', result.error);
+        this.showToast('ซิงก์ข้อมูลลง Google Sheets ล้มเหลว: ' + (result.error || 'unknown'), 'error');
+      } else {
+        console.log('✅ ซิงก์ข้อมูลลง Google Sheets สำเร็จ:', result);
+      }
+      return result;
+    } catch (err) {
+      console.error('syncBatchToGoogleSheets failed:', err);
+      this.showToast('ซิงก์ข้อมูลลง Google Sheets ล้มเหลว: ' + err.message, 'error');
     }
   },
 
@@ -2545,6 +2667,8 @@ const App = {
     if (navExp) navExp.addEventListener('click', () => this.exportCSV());
     const navImp = document.getElementById('nav-import-csv');
     if (navImp) navImp.addEventListener('click', () => this.triggerImportCSV());
+    const navSheets = document.getElementById('nav-import-sheets');
+    if (navSheets) navSheets.addEventListener('click', () => this.importFromGoogleSheets());
     const csvFileInput = document.getElementById('csv-file-input');
     if (csvFileInput) {
       csvFileInput.addEventListener('change', (e) => {
