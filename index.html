@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบปฏิทินการปฏิบัติงาน (Firebase Firestore Real-time)</title>
+<title>ระบบปฏิทินการปฏิบัติงาน</title>
 
 <!-- Fonts: Google Sarabun -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -962,24 +962,26 @@ textarea.form-control { resize: vertical; min-height: 80px; }
      ========================================================= -->
 <div id="login-screen">
   <div class="login-box">
-    <div class="login-logo">🔥</div>
+    <div class="login-logo">📅</div>
     <div class="login-title">ระบบปฏิทินการปฏิบัติงาน</div>
-    <div class="login-subtitle">Firebase Firestore Real-time Cloud</div>
+    <div class="login-subtitle">ระบบเรียลไทม์ผ่านเครือข่าย (Node.js Server)</div>
 
-    <!-- Banner แจ้งเตือนกรณีที่ยังไม่ได้กรอก firebase-config.js -->
-    <div id="cfg-warning-box" class="login-warning-box" style="display:none">
-      <strong>⚠️ ยังไม่ได้ตั้งค่า Firebase:</strong><br>
-      กรุณาเปิดไฟล์ <code>firebase-config.js</code> แล้วนำค่า configuration จาก Firebase Console มาวาง เพื่อเชื่อมต่อฐานข้อมูลแบบเรียลไทม์
+    <div style="text-align:left;margin-bottom:14px">
+      <label style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:6px;display:block">
+        👤 เลือกผู้ใช้งานเพื่อเข้าสู่ระบบ:
+      </label>
+      <select class="form-control" id="login-user-select" style="width:100%;padding:10px 12px;font-size:0.95rem;border-radius:8px">
+        <option value="">-- กำลังโหลดรายชื่อผู้ใช้จากเซิร์ฟเวอร์... --</option>
+      </select>
     </div>
 
-    <!-- Firebase Google Sign In Button -->
-    <button class="btn btn-primary" id="btn-google-login" style="width:100%;padding:12px;font-size:0.95rem;margin-bottom:14px">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
-      เข้าสู่ระบบด้วย Google Account
+    <!-- Login Button -->
+    <button class="btn btn-primary" id="btn-login-submit" style="width:100%;padding:12px;font-size:0.95rem;margin-bottom:14px">
+      🚀 เข้าสู่ระบบ
     </button>
 
     <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">
-      เมื่อเข้าสู่ระบบ ทุกเครื่องและทุกเบราว์เซอร์จะเชื่อมต่อฐานข้อมูล Firestore เดียวกันแบบ Real-time ทันที
+      บันทึกข้อมูลถาวรในเซิร์ฟเวอร์ (JSON File) พร้อมส่งข้อมูลแบบ Real-time (SSE) ไปยังทุกเครื่องในเครือข่ายทันที
     </div>
   </div>
 </div>
@@ -998,7 +1000,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </div>
       <!-- Connection Status indicator -->
       <span class="status-pill realtime" id="connection-status-pill">
-        <span id="conn-dot">🟢</span> <span id="conn-text">เชื่อมต่อฐานข้อมูลแล้ว</span>
+        <span id="conn-dot">🟢</span> <span id="conn-text">เชื่อมต่อเซิร์ฟเวอร์แล้ว</span>
       </span>
     </div>
 
@@ -1046,13 +1048,19 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         <div class="nav-item" data-nav="holidays">
           <span class="nav-icon">🎌</span>จัดการวันหยุด
         </div>
+        <div class="nav-item" id="nav-export-csv">
+          <span class="nav-icon">📤</span>ส่งออก CSV
+        </div>
+        <div class="nav-item" id="nav-import-csv">
+          <span class="nav-icon">📥</span>นำเข้า CSV
+        </div>
         <div class="nav-item" id="nav-import-sheets" style="display:none">
-          <span class="nav-icon">📥</span>นำเข้าจากชีต
+          <span class="nav-icon">📊</span>นำเข้าจาก Google Sheets
         </div>
       </div>
 
       <div style="margin-top:auto;padding:16px 20px;font-size:0.75rem;color:var(--text3);border-top:1px solid var(--border)">
-        <div>ฐานข้อมูล: <strong id="db-type-label">Firebase Firestore</strong></div>
+        <div>ฐานข้อมูล: <strong id="db-type-label">Node.js Server (JSON)</strong></div>
         <div style="margin-top:2px">ปี พ.ศ. ภาษาไทย 100%</div>
       </div>
     </nav>
@@ -1114,85 +1122,25 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <!-- Loading Overlay -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div id="loading-text">กำลังเชื่อมต่อฐานข้อมูล...</div>
+  <div id="loading-text">กำลังเชื่อมต่อเซิร์ฟเวอร์...</div>
 </div>
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
 
+<!-- Hidden file input for CSV import -->
+<input type="file" id="csv-file-input" accept=".csv" style="display:none">
+
+<!-- Google Apps Script Config -->
+<script src="config.js"></script>
+
 <!-- =========================================================
-     FIREBASE JS SDK v10 (MODULAR VIA CDN) & APPLICATION CORE
+     APPLICATION CORE (NODE.JS + SSE REAL-TIME)
      ========================================================= -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  writeBatch
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
-import { APPS_SCRIPT_URL } from "./config.js";
-
-// Sample Data Initial Seeds (ใส่เมื่อ collection events ว่างเท่านั้น)
-const SEED_USERS = [
-  { email: 'admin@school.ac.th',   name: 'ผู้ดูแลระบบ',    department: 'IT', role: 'admin' },
-  { email: 'head.it@school.ac.th', name: 'หัวหน้าฝ่าย IT', department: 'IT', role: 'head'  },
-  { email: 'head.hr@school.ac.th', name: 'หัวหน้าฝ่าย HR', department: 'HR', role: 'head'  },
-  { email: 'staff1@school.ac.th',  name: 'นายสมชาย ใจดี',  department: 'IT', role: 'staff' },
-  { email: 'staff2@school.ac.th',  name: 'นางสมหญิง รักดี', department: 'HR', role: 'staff' }
-];
-
-const SEED_HOLIDAYS = [
-  { date: '2025-01-01', name: 'วันขึ้นปีใหม่',                           type: 'public' },
-  { date: '2025-02-12', name: 'วันมาฆบูชา',                               type: 'public' },
-  { date: '2025-04-06', name: 'วันจักรี',                                 type: 'public' },
-  { date: '2025-04-13', name: 'วันสงกรานต์',                              type: 'public' },
-  { date: '2025-04-14', name: 'วันสงกรานต์',                              type: 'public' },
-  { date: '2025-04-15', name: 'วันสงกรานต์',                              type: 'public' },
-  { date: '2025-05-01', name: 'วันแรงงานแห่งชาติ',                        type: 'public' },
-  { date: '2025-05-05', name: 'วันฉัตรมงคล',                              type: 'public' },
-  { date: '2025-05-12', name: 'วันวิสาขบูชา',                             type: 'public' },
-  { date: '2025-06-03', name: 'วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าฯ พระบรมราชินี', type: 'public' },
-  { date: '2025-07-10', name: 'วันอาสาฬหบูชา',                           type: 'public' },
-  { date: '2025-07-11', name: 'วันเข้าพรรษา',                             type: 'public' },
-  { date: '2025-07-28', name: 'วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระเจ้าอยู่หัว', type: 'public' },
-  { date: '2025-08-12', name: 'วันแม่แห่งชาติ',                           type: 'public' },
-  { date: '2025-10-13', name: 'วันนวมินทรมหาราช',                         type: 'public' },
-  { date: '2025-10-23', name: 'วันปิยมหาราช',                             type: 'public' },
-  { date: '2025-12-05', name: 'วันพ่อแห่งชาติ',                           type: 'public' },
-  { date: '2025-12-10', name: 'วันรัฐธรรมนูญ',                            type: 'public' },
-  { date: '2025-12-31', name: 'วันสิ้นปี',                                type: 'public' }
-];
-
-const SEED_EVENTS = [
-  { id: 'ev-1', title: 'ประชุมวางแผนโครงการประจำปี 2568',         type: 'meet',  status: 'done',  assignee: 'head.it@school.ac.th', start: '2025-01-10', end: '2025-01-10', startTime: '09:00', endTime: '12:00', location: 'ห้องประชุม 1',     detail: 'ประชุมวางแผนงานประจำปีงบประมาณ 2568' },
-  { id: 'ev-2', title: 'อบรมเชิงปฏิบัติการระบบ ERP องค์กร',        type: 'teach', status: 'done',  assignee: 'staff1@school.ac.th',  start: '2025-01-20', end: '2025-01-22', startTime: '08:30', endTime: '16:30', location: 'ห้องคอมพิวเตอร์ 3', detail: 'อบรมหลักสูตรการใช้งานระบบ ERP สำหรับบุคลากรใหม่' },
-  { id: 'ev-3', title: 'โครงการพัฒนาเว็บไซต์และพอร์ทัลสถาบัน',     type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-02-01', end: '2025-03-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายสารสนเทศ IT',  detail: 'ปรับปรุงโฉมและฟังก์ชันเว็บไซต์หลักของสถาบัน' },
-  { id: 'ev-4', title: 'ประชุมคณะกรรมการบริหาร ประจำไตรมาส 1',    type: 'meet',  status: 'done',  assignee: 'head.hr@school.ac.th', start: '2025-02-15', end: '2025-02-15', startTime: '13:00', endTime: '16:00', location: 'ห้องประชุมใหญ่',   detail: 'รายงานสรุปผลการดำเนินงานและเป้าหมายไตรมาสถัดไป' },
-  { id: 'ev-5', title: 'อบรม Microsoft 365 เพื่อการทำงานร่วมกัน', type: 'teach', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-10', end: '2025-03-12', startTime: '08:30', endTime: '12:00', location: 'ห้องอบรม 2',       detail: 'การใช้งาน Teams, OneDrive และ Forms เพื่อการทำงาน' },
-  { id: 'ev-6', title: 'โครงการสำรวจความผูกพันและความพึงพอใจ',     type: 'proj',  status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-03-15', end: '2025-04-30', startTime: '',      endTime: '',      location: 'ฝ่ายทรัพยากรบุคคล', detail: 'จัดทำแบบสำรวจและประมวลผลข้อมูลความพึงพอใจบุคลากร' },
-  { id: 'ev-7', title: 'ประชุมปฐมนิเทศผู้ปกครอง ภาคเรียนที่ 1/2568', type: 'meet',  status: 'todo',  assignee: 'head.hr@school.ac.th', start: '2025-05-20', end: '2025-05-20', startTime: '14:00', endTime: '17:00', location: 'หอประชุมใหญ่',     detail: 'ชี้แจงแนวทางการเรียนการสอนและกฎระเบียบของสถาบัน' },
-  { id: 'ev-8', title: 'อบรมการตระหนักรู้ด้านความปลอดภัยไซเบอร์', type: 'teach', status: 'doing', assignee: 'head.it@school.ac.th', start: '2025-06-05', end: '2025-06-06', startTime: '09:00', endTime: '16:00', location: 'ห้องประชุม 2',     detail: 'หลักสูตร Cybersecurity Awareness สำหรับเจ้าหน้าที่ทุกฝ่าย' },
-  { id: 'ev-9', title: 'โครงการจัดทำคลังข้อมูลและแฟ้มประวัติบุคคล', type: 'proj',  status: 'doing', assignee: 'staff1@school.ac.th',  start: '2025-07-01', end: '2025-08-31', startTime: '08:30', endTime: '16:30', location: 'ฝ่ายบุคคล HR',     detail: 'แปลงเอกสารสู่ระบบดิจิทัลและจัดหมวดหมู่ข้อมูล' },
-  { id: 'ev-10',title: 'กิจกรรมเฉลิมพระเกียรติวันแม่แห่งชาติ',     type: 'other', status: 'todo',  assignee: 'staff2@school.ac.th',  start: '2025-08-12', end: '2025-08-12', startTime: '08:00', endTime: '12:00', location: 'ลานอเนกประสงค์',   detail: 'พิธีถวายพระพรชัยมงคลและกิจกรรมบำเพ็ญประโยชน์' }
-];
-
+<script>
+// Utilities
 function genId() {
-  return 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+  return 'ev-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
 }
 
 function getNowTimestamp() {
@@ -1201,25 +1149,44 @@ function getNowTimestamp() {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// ── ข้อมูลตัวอย่างเริ่มต้น (ใช้งานได้ทันทีแม้ไม่ได้รัน server) ─
+const DEFAULT_SAMPLE_USERS = [
+  { email: 'admin@school.ac.th',   name: 'ผู้ดูแลระบบ',    department: 'IT', role: 'admin' },
+  { email: 'head.it@school.ac.th', name: 'หัวหน้าฝ่าย IT', department: 'IT', role: 'head'  },
+  { email: 'head.hr@school.ac.th', name: 'หัวหน้าฝ่าย HR', department: 'HR', role: 'head'  },
+  { email: 'staff1@school.ac.th',  name: 'นายสมชาย ใจดี',  department: 'IT', role: 'staff' },
+  { email: 'staff2@school.ac.th',  name: 'นางสมหญิง รักดี', department: 'HR', role: 'staff' }
+];
+
+const DEFAULT_SAMPLE_EVENTS = [
+  { id:'ev-1', title:'ประชุมวางแผนโครงการประจำปี 2568',         type:'meet',  status:'done',  assignee:'head.it@school.ac.th', start:'2025-01-10', end:'2025-01-10', startTime:'09:00', endTime:'12:00', location:'ห้องประชุม 1',     detail:'ประชุมวางแผนงานประจำปีงบประมาณ 2568', updatedAt:'' },
+  { id:'ev-2', title:'อบรมเชิงปฏิบัติการระบบ ERP องค์กร',        type:'teach', status:'done',  assignee:'staff1@school.ac.th',  start:'2025-01-20', end:'2025-01-22', startTime:'08:30', endTime:'16:30', location:'ห้องคอมพิวเตอร์ 3', detail:'อบรมหลักสูตรการใช้งานระบบ ERP สำหรับบุคลากรใหม่', updatedAt:'' },
+  { id:'ev-3', title:'โครงการพัฒนาเว็บไซต์และพอร์ทัลสถาบัน',     type:'proj',  status:'doing', assignee:'staff1@school.ac.th',  start:'2025-02-01', end:'2025-03-31', startTime:'08:30', endTime:'16:30', location:'ฝ่ายสารสนเทศ IT',  detail:'ปรับปรุงโฉมและฟังก์ชันเว็บไซต์หลักของสถาบัน', updatedAt:'' },
+  { id:'ev-4', title:'ประชุมคณะกรรมการบริหาร ประจำไตรมาส 1',    type:'meet',  status:'done',  assignee:'head.hr@school.ac.th', start:'2025-02-15', end:'2025-02-15', startTime:'13:00', endTime:'16:00', location:'ห้องประชุมใหญ่',   detail:'รายงานสรุปผลการดำเนินงานและเป้าหมายไตรมาสถัดไป', updatedAt:'' },
+  { id:'ev-5', title:'อบรม Microsoft 365 เพื่อการทำงานร่วมกัน', type:'teach', status:'todo',  assignee:'staff2@school.ac.th',  start:'2025-03-10', end:'2025-03-12', startTime:'08:30', endTime:'12:00', location:'ห้องอบรม 2',       detail:'การใช้งาน Teams, OneDrive และ Forms เพื่อการทำงาน', updatedAt:'' }
+];
+
+const DEFAULT_SAMPLE_HOLIDAYS = [
+  { date:'2025-01-01', name:'วันขึ้นปีใหม่',  type:'public' },
+  { date:'2025-02-12', name:'วันมาฆบูชา',      type:'public' },
+  { date:'2025-04-13', name:'วันสงกรานต์',     type:'public' },
+  { date:'2025-04-14', name:'วันสงกรานต์',     type:'public' },
+  { date:'2025-04-15', name:'วันสงกรานต์',     type:'public' }
+];
+
 // =========================================================
 // APP OBJECT
 // =========================================================
 const App = {
-  db: null,
-  auth: null,
   currentUser: null,
   currentView: 'month',
   currentDate: new Date(2025, 0, 15),
-  events: [],
-  users: [],
-  holidays: [],
+  events: [...DEFAULT_SAMPLE_EVENTS],
+  users: [...DEFAULT_SAMPLE_USERS],
+  holidays: [...DEFAULT_SAMPLE_HOLIDAYS],
   filters: { assignee: '', type: '', status: '' },
   _notifications: [],
-  hasSeededCheck: false,
-
-  unsubEvents: null,
-  unsubUsers: null,
-  unsubHolidays: null,
+  _eventSource: null,
 
   // ---------- INIT ----------
   async init() {
@@ -1228,125 +1195,84 @@ const App = {
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.getElementById('dark-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-    // 2. ตรวจสอบการตั้งค่า Firebase ใน firebase-config.js
-    if (!firebaseConfig || !firebaseConfig.apiKey) {
-      document.getElementById('cfg-warning-box').style.display = 'block';
+    // 2. เติมรายชื่อผู้ใช้ตั้งต้นทันที (เข้าใช้งานได้เลยโดยไม่ต้องรอต่อเน็ต/server)
+    this.populateLoginUsers();
+    this.fillAssigneeFilter();
+
+    // 3. โหลดข้อมูลล่าสุดจากเซิร์ฟเวอร์ (ถ้ามี)
+    await this.fetchInitialData();
+
+    // 4. เริ่มต้น Server-Sent Events (Real-time stream)
+    this.connectSSE();
+
+    // 5. ผูกเหตุการณ์ DOM
+    this.bindDOMEvents();
+
+    // 6. ทดสอบการเชื่อมต่อ Google Apps Script Web App (ถ้ามี APPS_SCRIPT_URL)
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (scriptUrl) {
+      this.testAppsScriptPing();
+    }
+  },
+
+  async fetchInitialData() {
+    try {
+      const res = await fetch('/api/events');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.events && data.events.length > 0)   this.events = data.events;
+      if (data.users && data.users.length > 0)     this.users = data.users;
+      if (data.holidays && data.holidays.length > 0) this.holidays = data.holidays;
+
+      this.populateLoginUsers();
+      this.fillAssigneeFilter();
+      this.updateConnectionStatus(true);
+    } catch (err) {
+      console.warn('ทำงานในโหมด Standalone / Offline:', err.message);
       this.updateConnectionStatus(false);
-      this.bindDOMEvents();
+      // ยังคงมีข้อมูลตัวอย่างพร้อมใช้งานทันที
+      this.populateLoginUsers();
+      this.fillAssigneeFilter();
+    }
+  },
+
+  populateLoginUsers() {
+    const sel = document.getElementById('login-user-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- เลือกผู้ใช้เพื่อเข้าสู่ระบบ --</option>';
+    this.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.email;
+      opt.textContent = `${u.name} — ${u.department || 'ทั่วไป'} (${this.getRoleLabel(u.role)})`;
+      sel.appendChild(opt);
+    });
+    if (this.users.length > 0) {
+      sel.value = this.users[0].email;
+    }
+  },
+
+  loginSubmit() {
+    const sel = document.getElementById('login-user-select');
+    const email = sel ? sel.value : '';
+    if (!email) {
+      this.showToast('กรุณาเลือกผู้ใช้งานเพื่อเข้าสู่ระบบ', 'warning');
       return;
     }
-
-    // 3. เริ่มต้น Firebase App, Auth และ Firestore
-    try {
-      const app = initializeApp(firebaseConfig);
-      this.auth = getAuth(app);
-      this.db = getFirestore(app);
-
-      // แสดงเมนูนำเข้าจากชีตถ้ามี APPS_SCRIPT_URL และทดสอบเชื่อมต่อ (ping)
-      if (APPS_SCRIPT_URL) {
-        document.getElementById('nav-import-sheets').style.display = 'flex';
-        this.testAppsScriptPing();
-      }
-
-      // 4. ติดตามสถานะการเข้าสู่ระบบ (Authentication State)
-      onAuthStateChanged(this.auth, async (user) => {
-        if (user) {
-          await this.handleUserSignedIn(user);
-        } else {
-          this.handleUserSignedOut();
-        }
-      });
-
-    } catch (err) {
-      console.error('Firebase initialization error:', err);
-      this.showToast('เชื่อมต่อ Firebase ไม่สำเร็จ: ' + err.message, 'error');
-      this.updateConnectionStatus(false);
+    const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      this.showToast('ไม่พบข้อมูลผู้ใช้ในระบบ', 'error');
+      return;
     }
-
-    this.bindDOMEvents();
+    this.currentUser = { ...user };
+    this.showApp();
+    this.showToast(`ยินดีต้อนรับ คุณ${this.currentUser.name} (${this.getRoleLabel(this.currentUser.role)})`, 'success');
   },
 
-  // ---------- AUTHENTICATION & ROLE LOOKUP ----------
-  async handleUserSignedIn(user) {
-    this.showLoading(true, 'กำลังโหลดข้อมูลสิทธิ์ผู้ใช้...');
-    const email = user.email.toLowerCase();
-
-    try {
-      const userDocRef = doc(this.db, 'users', email);
-      const userDocSnap = await getDoc(userDocRef);
-
-      let userData;
-      if (userDocSnap.exists()) {
-        userData = userDocSnap.data();
-      } else {
-        // หากผู้ใช้เพิ่งเข้าสู่ระบบครั้งแรก สร้างข้อมูลใน collection "users"
-        // ถ้าเป็น admin หรือคนแรกในระบบ กำหนด role เป็น admin
-        const usersSnap = await getDocs(collection(this.db, 'users'));
-        const isFirstUser = usersSnap.empty;
-        const isAdminEmail = email.includes('admin');
-
-        userData = {
-          email: email,
-          name: user.displayName || email.split('@')[0],
-          department: isAdminEmail ? 'IT' : 'ทั่วไป',
-          role: (isFirstUser || isAdminEmail) ? 'admin' : 'staff',
-          photoURL: user.photoURL || ''
-        };
-        await setDoc(userDocRef, userData);
-      }
-
-      this.currentUser = {
-        email: email,
-        name: userData.name || user.displayName || email,
-        department: userData.department || 'ทั่วไป',
-        role: userData.role || 'staff',
-        photoURL: user.photoURL || userData.photoURL || ''
-      };
-
-      this.showApp();
-      this.startRealtimeListeners();
-      this.showToast(`ยินดีต้อนรับ คุณ${this.currentUser.name} (${this.getRoleLabel(this.currentUser.role)})`, 'success');
-
-    } catch (err) {
-      console.error('Role lookup error:', err);
-      this.showToast('ดึงข้อมูลสิทธิ์ไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
-    }
-  },
-
-  handleUserSignedOut() {
-    this.stopRealtimeListeners();
+  logout() {
+    if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
     this.currentUser = null;
-    this.events = [];
     document.getElementById('app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
-  },
-
-  async loginWithGoogle() {
-    if (!this.auth) {
-      this.showToast('กรุณากรอกค่า Firebase Config ในไฟล์ firebase-config.js ก่อน', 'warning');
-      return;
-    }
-    this.showLoading(true, 'กำลังเปิดหน้าต่างเข้าสู่ระบบ Google...');
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(this.auth, provider);
-    } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        this.showToast('เข้าสู่ระบบไม่สำเร็จ: ' + err.message, 'error');
-      }
-    } finally {
-      this.showLoading(false);
-    }
-  },
-
-  async logout() {
-    if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
-    if (this.auth) {
-      await signOut(this.auth);
-    }
-    this.handleUserSignedOut();
   },
 
   showApp() {
@@ -1367,86 +1293,73 @@ const App = {
     const isAdmin = (u.role === 'admin');
     document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
 
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const navSheets = document.getElementById('nav-import-sheets');
+    if (navSheets) {
+      navSheets.style.display = (isAdmin && scriptUrl) ? 'flex' : 'none';
+    }
+
     this.navigate('calendar');
   },
 
-  // ---------- REAL-TIME ONSNAPSHOT LISTENERS ----------
-  startRealtimeListeners() {
-    if (!this.db) return;
+  // ---------- REAL-TIME SSE (SERVER-SENT EVENTS) ----------
+  connectSSE() {
+    if (this._eventSource) {
+      try { this._eventSource.close(); } catch (_) {}
+    }
 
-    // 1. Listen to "events" collection
-    this.unsubEvents = onSnapshot(collection(this.db, 'events'), async (snapshot) => {
-      // ตรวจสอบข้อมูลตัวอย่างครั้งแรกเมื่อ collection ว่างเท่านั้น
-      if (snapshot.empty && !this.hasSeededCheck) {
-        this.hasSeededCheck = true;
-        await this.seedInitialDataIfEmpty();
-        return;
-      }
-      this.hasSeededCheck = true;
+    this._eventSource = new EventSource('/api/stream');
 
-      const loadedEvents = [];
-      snapshot.forEach((docSnap) => {
-        loadedEvents.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
-      this.events = loadedEvents;
+    this._eventSource.onopen = () => {
       this.updateConnectionStatus(true);
-      this.renderCalendar();
-      this.checkNotifications();
+    };
 
-      if (document.getElementById('page-dashboard').style.display !== 'none') {
-        this.renderDashboard();
-      }
-    }, (error) => {
-      console.error('Events onSnapshot error:', error);
-      this.updateConnectionStatus(false);
-      this.showToast('การเชื่อมต่อ Firestore ขัดข้อง: ' + error.message, 'error');
-    });
+    this._eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.events)   this.events = data.events;
+        if (data.users) {
+          this.users = data.users;
+          this.populateLoginUsers();
+          this.fillAssigneeFilter();
 
-    // 2. Listen to "users" collection
-    this.unsubUsers = onSnapshot(collection(this.db, 'users'), (snapshot) => {
-      const uList = [];
-      snapshot.forEach(docSnap => uList.push({ email: docSnap.id, ...docSnap.data() }));
-      this.users = uList;
-      this.fillAssigneeFilter();
-
-      // อัปเดตข้อมูลผู้ใช้ปัจจุบันหากมีการเปลี่ยน role หรือชื่อ
-      if (this.currentUser) {
-        const fresh = this.users.find(u => u.email.toLowerCase() === this.currentUser.email.toLowerCase());
-        if (fresh) {
-          this.currentUser.role = fresh.role || this.currentUser.role;
-          this.currentUser.department = fresh.department || this.currentUser.department;
-          this.currentUser.name = fresh.name || this.currentUser.name;
-          document.getElementById('hdr-name').textContent = this.currentUser.name;
-          document.getElementById('hdr-dept').textContent = this.currentUser.department;
-          document.getElementById('hdr-role').textContent = this.getRoleLabel(this.currentUser.role);
-          const isAdmin = (this.currentUser.role === 'admin');
-          document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+          if (this.currentUser) {
+            const fresh = this.users.find(u => u.email.toLowerCase() === this.currentUser.email.toLowerCase());
+            if (fresh) {
+              this.currentUser.role = fresh.role || this.currentUser.role;
+              this.currentUser.department = fresh.department || this.currentUser.department;
+              this.currentUser.name = fresh.name || this.currentUser.name;
+              document.getElementById('hdr-name').textContent = this.currentUser.name;
+              document.getElementById('hdr-dept').textContent = this.currentUser.department;
+              document.getElementById('hdr-role').textContent = this.getRoleLabel(this.currentUser.role);
+              const isAdmin = (this.currentUser.role === 'admin');
+              document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+            }
+          }
         }
+        if (data.holidays) this.holidays = data.holidays;
+
+        this.updateConnectionStatus(true);
+        this.renderCalendar();
+        this.checkNotifications();
+
+        if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+          this.renderDashboard();
+        }
+        if (document.getElementById('page-users') && document.getElementById('page-users').style.display !== 'none') {
+          this.renderUsers();
+        }
+        if (document.getElementById('page-holidays') && document.getElementById('page-holidays').style.display !== 'none') {
+          this.renderHolidays();
+        }
+      } catch (err) {
+        console.error('SSE data parse error:', err);
       }
+    };
 
-      if (document.getElementById('page-users').style.display !== 'none') {
-        this.renderUsers();
-      }
-    });
-
-    // 3. Listen to "holidays" collection
-    this.unsubHolidays = onSnapshot(collection(this.db, 'holidays'), (snapshot) => {
-      const hList = [];
-      snapshot.forEach(docSnap => hList.push({ date: docSnap.id, ...docSnap.data() }));
-      this.holidays = hList;
-      this.renderCalendar();
-
-      if (document.getElementById('page-holidays').style.display !== 'none') {
-        this.renderHolidays();
-      }
-    });
-  },
-
-  stopRealtimeListeners() {
-    if (this.unsubEvents) { this.unsubEvents(); this.unsubEvents = null; }
-    if (this.unsubUsers) { this.unsubUsers(); this.unsubUsers = null; }
-    if (this.unsubHolidays) { this.unsubHolidays(); this.unsubHolidays = null; }
+    this._eventSource.onerror = () => {
+      this.updateConnectionStatus(false);
+    };
   },
 
   updateConnectionStatus(isConnected) {
@@ -1458,7 +1371,7 @@ const App = {
     if (isConnected) {
       pill.className = 'status-pill realtime';
       dot.textContent = '🟢';
-      txt.textContent = 'เชื่อมต่อฐานข้อมูลแล้ว';
+      txt.textContent = 'เชื่อมต่อเซิร์ฟเวอร์แล้ว';
     } else {
       pill.className = 'status-pill offline';
       dot.textContent = '⚠️';
@@ -1466,43 +1379,7 @@ const App = {
     }
   },
 
-  // ---------- SEED INITIAL DATA (WHEN COLLECTION IS EMPTY) ----------
-  async seedInitialDataIfEmpty() {
-    this.showLoading(true, 'กำลังติดตั้งข้อมูลตัวอย่างตั้งต้นลง Firestore...');
-    try {
-      const batch = writeBatch(this.db);
-
-      // 1. Events
-      SEED_EVENTS.forEach(ev => {
-        const ref = doc(this.db, 'events', ev.id);
-        batch.set(ref, {
-          ...ev,
-          updatedAt: getNowTimestamp()
-        });
-      });
-
-      // 2. Holidays
-      SEED_HOLIDAYS.forEach(hol => {
-        const ref = doc(this.db, 'holidays', hol.date);
-        batch.set(ref, hol);
-      });
-
-      // 3. Users
-      SEED_USERS.forEach(usr => {
-        const ref = doc(this.db, 'users', usr.email);
-        batch.set(ref, usr);
-      });
-
-      await batch.commit();
-      this.showToast('ติดตั้งข้อมูลตัวอย่างครั้งแรกใน Firestore เรียบร้อยแล้ว', 'success');
-    } catch (err) {
-      console.error('Seed initial data error:', err);
-    } finally {
-      this.showLoading(false);
-    }
-  },
-
-  // ---------- EVENT CRUD (SETDOC / DELETEDOC / UPDATEDOC) ----------
+  // ---------- EVENT CRUD ----------
   async saveEvent(editId) {
     const title     = document.getElementById('ev-title').value.trim();
     const type      = document.getElementById('ev-type').value;
@@ -1520,25 +1397,27 @@ const App = {
     if (end < start) { this.showToast('วันสิ้นสุดต้องไม่น้อยกว่าวันเริ่มต้น', 'warning'); return; }
 
     const id = editId || genId();
-    const nowStamp = getNowTimestamp();
     const targetUser = this.users.find(u => u.email === assignee);
     const department = targetUser ? (targetUser.department || '') : '';
 
     const eventData = {
       id, title, type, status, assignee, start, end, startTime, endTime, location, detail,
       department: department,
-      updatedAt: nowStamp,
       updatedBy: this.currentUser ? this.currentUser.email : ''
     };
 
-    this.showLoading(true, 'กำลังบันทึกลง Firestore...');
+    this.showLoading(true, 'กำลังบันทึกข้อมูล...');
     try {
-      await setDoc(doc(this.db, 'events', id), eventData, { merge: true });
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
       this.closeModal('event-modal');
       this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
-
-      // ซิงก์ลง Google Sheets (ถ้ามี URL)
-      this.syncToGoogleSheets('upsertEvent', eventData);
     } catch (err) {
       this.showToast('บันทึกล้มเหลว: ' + err.message, 'error');
     } finally {
@@ -1551,14 +1430,16 @@ const App = {
     if (!ev) return;
     if (!confirm(`คุณต้องการลบงาน "${ev.title}" ใช่หรือไม่?`)) return;
 
-    this.showLoading(true, 'กำลังลบงานออกจาก Firestore...');
+    this.showLoading(true, 'กำลังลบงาน...');
     try {
-      await deleteDoc(doc(this.db, 'events', id));
+      const res = await fetch('/api/events/' + encodeURIComponent(id), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
       this.closeModal('event-modal');
       this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
-
-      // ซิงก์ลบใน Google Sheets
-      this.syncToGoogleSheets('deleteEvent', { id });
     } catch (err) {
       this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1577,14 +1458,18 @@ const App = {
     }
 
     try {
-      const nowStamp = getNowTimestamp();
-      await updateDoc(doc(this.db, 'events', id), {
-        status: status,
-        updatedAt: nowStamp,
-        updatedBy: u.email
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: id,
+          status: status,
+          updatedBy: u.email
+        })
       });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
       this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
-      this.syncToGoogleSheets('updateStatus', { id, status });
     } catch (err) {
       this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
     }
@@ -1592,11 +1477,12 @@ const App = {
 
   // ---------- GOOGLE APPS SCRIPT WEB APP INTEGRATION ----------
   async testAppsScriptPing() {
-    if (!APPS_SCRIPT_URL) return;
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) return;
     try {
       // GET: fetch(APPS_SCRIPT_URL + '?action=ping') ห้ามใส่ headers และห้ามใช้ credentials
-      const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
-      const response = await fetch(APPS_SCRIPT_URL + sep + 'action=ping');
+      const sep = scriptUrl.includes('?') ? '&' : '?';
+      const response = await fetch(scriptUrl + sep + 'action=ping');
       const result = await response.json();
       if (!result.success) {
         console.error('Apps Script ping error:', result.error);
@@ -1610,35 +1496,67 @@ const App = {
     }
   },
 
-  async syncToGoogleSheets(action, payload) {
-    if (!APPS_SCRIPT_URL) return;
+  async importFromGoogleSheets() {
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) {
+      this.showToast('กรุณาระบุ APPS_SCRIPT_URL ในไฟล์ config.js', 'warning');
+      return;
+    }
+    if (this.currentUser && this.currentUser.role !== 'admin') {
+      this.showToast('เฉพาะ Admin เท่านั้นที่นำเข้าข้อมูลได้', 'error');
+      return;
+    }
+    if (!confirm('ต้องการอ่านข้อมูลจาก Google Sheets เพื่ออัปเดตลงในระบบหรือไม่?')) return;
+
+    this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
     try {
-      // POST: ห้ามใช้ application/json เพราะทำให้เกิด CORS preflight
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: action,
-          userEmail: this.currentUser ? this.currentUser.email : '',
-          ...payload
-        }),
-        redirect: 'follow'
-      });
+      // GET: fetch(APPS_SCRIPT_URL + '?action=getEvents') ห้ามใส่ headers และห้ามใช้ credentials
+      const sep = scriptUrl.includes('?') ? '&' : '?';
+      const response = await fetch(scriptUrl + sep + 'action=getEvents');
       const result = await response.json();
+
       if (!result.success) {
-        console.error(`Apps Script [${action}] returned error:`, result.error);
+        console.error('Apps Script getEvents error:', result.error);
+        throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
       }
-      return result;
+
+      const sheetEvents = result.data || [];
+      if (sheetEvents.length === 0) {
+        this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
+        return;
+      }
+
+      this.showLoading(true, `กำลังบันทึก ${sheetEvents.length} รายการลงในระบบ...`);
+      let count = 0;
+      for (const item of sheetEvents) {
+        if (!item.id) continue;
+        const res = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...item,
+            updatedAt: item.updatedAt || getNowTimestamp()
+          })
+        });
+        const resData = await res.json();
+        if (resData.success) count++;
+      }
+      this.showToast(`นำเข้าสำเร็จ ${count} รายการจาก Google Sheets แล้ว`, 'success');
     } catch (err) {
-      console.error(`Apps Script [${action}] failed:`, err);
+      console.error('นำเข้าข้อมูลล้มเหลว:', err);
+      this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
     }
   },
 
   async syncBatchToGoogleSheets(events) {
-    if (!APPS_SCRIPT_URL) return;
+    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    if (!scriptUrl) return;
     try {
       // POST: fetch(APPS_SCRIPT_URL, { action: 'batchUpsertEvents', events: [...] })
-      const response = await fetch(APPS_SCRIPT_URL, {
+      // ห้ามใช้ application/json เพราะทำให้เกิด CORS preflight
+      const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -1661,54 +1579,46 @@ const App = {
     }
   },
 
-  async importFromGoogleSheets() {
-    if (!APPS_SCRIPT_URL) {
-      this.showToast('กรุณาระบุ APPS_SCRIPT_URL ในไฟล์ config.js', 'warning');
-      return;
+  // ---------- CSV EXPORT & IMPORT ----------
+  exportCSV() {
+    window.location.href = '/api/export-csv';
+    this.showToast('กำลังดาวน์โหลดไฟล์ CSV...', 'success');
+  },
+
+  triggerImportCSV() {
+    const input = document.getElementById('csv-file-input');
+    if (input) {
+      input.value = '';
+      input.click();
     }
-    if (this.currentUser && this.currentUser.role !== 'admin') {
-      this.showToast('เฉพาะ Admin เท่านั้นที่นำเข้าข้อมูลได้', 'error');
-      return;
-    }
-    if (!confirm('ต้องการอ่านข้อมูลจาก Google Sheets เพื่ออัปเดตลงใน Firestore หรือไม่?')) return;
+  },
 
-    this.showLoading(true, 'กำลังอ่านข้อมูลจาก Google Sheets...');
-    try {
-      // GET: fetch(APPS_SCRIPT_URL + '?action=getEvents') ห้ามใส่ headers และห้ามใช้ credentials
-      const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
-      const response = await fetch(APPS_SCRIPT_URL + sep + 'action=getEvents');
-      const result = await response.json();
-
-      if (!result.success) {
-        console.error('Apps Script getEvents error:', result.error);
-        throw new Error(result.error || 'ดึงข้อมูลไม่สำเร็จ');
+  async handleCSVFileSelect(file) {
+    if (!file) return;
+    this.showLoading(true, 'กำลังอ่านไฟล์ CSV...');
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      try {
+        const res = await fetch('/api/import-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ csvText: text })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error || 'นำเข้าไม่สำเร็จ');
+        this.showToast(result.message || `นำเข้าสำเร็จ ${result.count} รายการ`, 'success');
+      } catch (err) {
+        this.showToast('นำเข้า CSV ล้มเหลว: ' + err.message, 'error');
+      } finally {
+        this.showLoading(false);
       }
-
-      const sheetEvents = result.data || [];
-      if (sheetEvents.length === 0) {
-        this.showToast('ไม่พบข้อมูลงานใน Google Sheets', 'info');
-        return;
-      }
-
-      this.showLoading(true, `กำลังเขียน ${sheetEvents.length} รายการลง Firestore...`);
-      const batch = writeBatch(this.db);
-      sheetEvents.forEach(item => {
-        if (item.id) {
-          const ref = doc(this.db, 'events', item.id);
-          batch.set(ref, {
-            ...item,
-            updatedAt: item.updatedAt || getNowTimestamp()
-          }, { merge: true });
-        }
-      });
-      await batch.commit();
-      this.showToast(`นำเข้าสำเร็จ ${sheetEvents.length} รายการจาก Google Sheets สู่ Firestore แล้ว`, 'success');
-    } catch (err) {
-      console.error('นำเข้าข้อมูลล้มเหลว:', err);
-      this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
-    } finally {
+    };
+    reader.onerror = () => {
       this.showLoading(false);
-    }
+      this.showToast('อ่านไฟล์ไม่สำเร็จ', 'error');
+    };
+    reader.readAsText(file, 'utf-8');
   },
 
   // ---------- USER MANAGEMENT (ADMIN) ----------
@@ -1724,10 +1634,16 @@ const App = {
     const userData = { email, name, department: dept, role };
     this.showLoading(true, 'กำลังบันทึกข้อมูลผู้ใช้...');
     try {
-      await setDoc(doc(this.db, 'users', email), userData, { merge: true });
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
       this.closeModal('user-modal');
       this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets(editEmail ? 'updateUser' : 'createUser', userData);
     } catch (err) {
       this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1736,7 +1652,7 @@ const App = {
   },
 
   async deleteUser(email) {
-    if (email === this.currentUser.email) {
+    if (this.currentUser && email === this.currentUser.email) {
       this.showToast('ไม่สามารถลบบัญชีตนเองได้', 'error');
       return;
     }
@@ -1744,9 +1660,13 @@ const App = {
 
     this.showLoading(true, 'กำลังลบผู้ใช้...');
     try {
-      await deleteDoc(doc(this.db, 'users', email));
+      const res = await fetch('/api/users/' + encodeURIComponent(email), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
       this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets('deleteUser', { email });
     } catch (err) {
       this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1766,10 +1686,16 @@ const App = {
     const holidayData = { date, name, type };
     this.showLoading(true, 'กำลังบันทึกวันหยุด...');
     try {
-      await setDoc(doc(this.db, 'holidays', date), holidayData);
+      const res = await fetch('/api/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(holidayData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
       this.closeModal('hol-modal');
       this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets('createHoliday', holidayData);
     } catch (err) {
       this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1781,9 +1707,13 @@ const App = {
     if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
     this.showLoading(true, 'กำลังลบวันหยุด...');
     try {
-      await deleteDoc(doc(this.db, 'holidays', date));
+      const res = await fetch('/api/holidays/' + encodeURIComponent(date), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
       this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets('deleteHoliday', { date });
     } catch (err) {
       this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -2433,11 +2363,11 @@ const App = {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:1.3rem;font-weight:800;color:var(--text)">📊 แดชบอร์ดสรุปการปฏิบัติงาน</h2>
-          <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจาก Firestore ทุกเครื่อง</p>
+          <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจากเซิร์ฟเวอร์ทุกเครื่อง (Node.js + SSE)</p>
         </div>
         <div style="display:flex;gap:8px">
-          ${(this.currentUser.role === 'admin' && APPS_SCRIPT_URL) ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้าจากชีต</button>` : ''}
-          <button class="btn btn-secondary btn-sm" id="btn-export-excel">📥 ส่งออก Excel (CSV)</button>
+          ${(this.currentUser.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้า CSV</button>` : ''}
+          <button class="btn btn-secondary btn-sm" id="btn-export-excel">📤 ส่งออก CSV</button>
           <button class="btn btn-primary btn-sm" id="btn-export-pdf">🖨️ ส่งออก PDF / พิมพ์</button>
         </div>
       </div>
@@ -2509,9 +2439,9 @@ const App = {
     `;
 
     const btnImp = wrap.querySelector('#btn-import-dash');
-    if (btnImp) btnImp.addEventListener('click', () => this.importFromGoogleSheets());
+    if (btnImp) btnImp.addEventListener('click', () => this.triggerImportCSV());
 
-    wrap.querySelector('#btn-export-excel').addEventListener('click', () => this.exportExcel());
+    wrap.querySelector('#btn-export-excel').addEventListener('click', () => this.exportCSV());
     wrap.querySelector('#btn-export-pdf').addEventListener('click', () => window.print());
   },
 
@@ -2562,7 +2492,7 @@ const App = {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:1.2rem;font-weight:800;color:var(--text)">👥 จัดการรายชื่อผู้ใช้</h2>
-          <p style="font-size:0.85rem;color:var(--text2)">กำหนดสิทธิ์ Admin / Head / Staff ใน Firestore</p>
+          <p style="font-size:0.85rem;color:var(--text2)">กำหนดสิทธิ์ Admin / Head / Staff</p>
         </div>
         <button class="btn btn-primary btn-sm" id="btn-add-user">➕ เพิ่มผู้ใช้</button>
       </div>
@@ -2748,8 +2678,33 @@ const App = {
 
   // ---------- BIND DOM EVENTS ----------
   bindDOMEvents() {
-    // Google Sign-In
-    document.getElementById('btn-google-login').addEventListener('click', () => this.loginWithGoogle());
+    // Login Submit
+    const btnLogin = document.getElementById('btn-login-submit');
+    if (btnLogin) {
+      btnLogin.addEventListener('click', () => this.loginSubmit());
+    }
+    const userSel = document.getElementById('login-user-select');
+    if (userSel) {
+      userSel.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.loginSubmit();
+      });
+    }
+
+    // CSV Nav Items
+    const navExp = document.getElementById('nav-export-csv');
+    if (navExp) navExp.addEventListener('click', () => this.exportCSV());
+    const navImp = document.getElementById('nav-import-csv');
+    if (navImp) navImp.addEventListener('click', () => this.triggerImportCSV());
+    const navSheets = document.getElementById('nav-import-sheets');
+    if (navSheets) navSheets.addEventListener('click', () => this.importFromGoogleSheets());
+    const csvFileInput = document.getElementById('csv-file-input');
+    if (csvFileInput) {
+      csvFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handleCSVFileSelect(e.target.files[0]);
+        }
+      });
+    }
 
     // Sidebar & View
     document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
@@ -2774,10 +2729,7 @@ const App = {
       });
     });
 
-    const navImp = document.getElementById('nav-import-sheets');
-    if (navImp) {
-      navImp.addEventListener('click', () => this.importFromGoogleSheets());
-    }
+
 
     // View tabs
     document.querySelectorAll('.view-tab[data-view]').forEach(tab => {

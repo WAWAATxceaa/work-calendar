@@ -1149,6 +1149,31 @@ function getNowTimestamp() {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// ── ข้อมูลตัวอย่างเริ่มต้น (ใช้งานได้ทันทีแม้ไม่ได้รัน server) ─
+const DEFAULT_SAMPLE_USERS = [
+  { email: 'admin@school.ac.th',   name: 'ผู้ดูแลระบบ',    department: 'IT', role: 'admin' },
+  { email: 'head.it@school.ac.th', name: 'หัวหน้าฝ่าย IT', department: 'IT', role: 'head'  },
+  { email: 'head.hr@school.ac.th', name: 'หัวหน้าฝ่าย HR', department: 'HR', role: 'head'  },
+  { email: 'staff1@school.ac.th',  name: 'นายสมชาย ใจดี',  department: 'IT', role: 'staff' },
+  { email: 'staff2@school.ac.th',  name: 'นางสมหญิง รักดี', department: 'HR', role: 'staff' }
+];
+
+const DEFAULT_SAMPLE_EVENTS = [
+  { id:'ev-1', title:'ประชุมวางแผนโครงการประจำปี 2568',         type:'meet',  status:'done',  assignee:'head.it@school.ac.th', start:'2025-01-10', end:'2025-01-10', startTime:'09:00', endTime:'12:00', location:'ห้องประชุม 1',     detail:'ประชุมวางแผนงานประจำปีงบประมาณ 2568', updatedAt:'' },
+  { id:'ev-2', title:'อบรมเชิงปฏิบัติการระบบ ERP องค์กร',        type:'teach', status:'done',  assignee:'staff1@school.ac.th',  start:'2025-01-20', end:'2025-01-22', startTime:'08:30', endTime:'16:30', location:'ห้องคอมพิวเตอร์ 3', detail:'อบรมหลักสูตรการใช้งานระบบ ERP สำหรับบุคลากรใหม่', updatedAt:'' },
+  { id:'ev-3', title:'โครงการพัฒนาเว็บไซต์และพอร์ทัลสถาบัน',     type:'proj',  status:'doing', assignee:'staff1@school.ac.th',  start:'2025-02-01', end:'2025-03-31', startTime:'08:30', endTime:'16:30', location:'ฝ่ายสารสนเทศ IT',  detail:'ปรับปรุงโฉมและฟังก์ชันเว็บไซต์หลักของสถาบัน', updatedAt:'' },
+  { id:'ev-4', title:'ประชุมคณะกรรมการบริหาร ประจำไตรมาส 1',    type:'meet',  status:'done',  assignee:'head.hr@school.ac.th', start:'2025-02-15', end:'2025-02-15', startTime:'13:00', endTime:'16:00', location:'ห้องประชุมใหญ่',   detail:'รายงานสรุปผลการดำเนินงานและเป้าหมายไตรมาสถัดไป', updatedAt:'' },
+  { id:'ev-5', title:'อบรม Microsoft 365 เพื่อการทำงานร่วมกัน', type:'teach', status:'todo',  assignee:'staff2@school.ac.th',  start:'2025-03-10', end:'2025-03-12', startTime:'08:30', endTime:'12:00', location:'ห้องอบรม 2',       detail:'การใช้งาน Teams, OneDrive และ Forms เพื่อการทำงาน', updatedAt:'' }
+];
+
+const DEFAULT_SAMPLE_HOLIDAYS = [
+  { date:'2025-01-01', name:'วันขึ้นปีใหม่',  type:'public' },
+  { date:'2025-02-12', name:'วันมาฆบูชา',      type:'public' },
+  { date:'2025-04-13', name:'วันสงกรานต์',     type:'public' },
+  { date:'2025-04-14', name:'วันสงกรานต์',     type:'public' },
+  { date:'2025-04-15', name:'วันสงกรานต์',     type:'public' }
+];
+
 // =========================================================
 // APP OBJECT
 // =========================================================
@@ -1156,9 +1181,9 @@ const App = {
   currentUser: null,
   currentView: 'month',
   currentDate: new Date(2025, 0, 15),
-  events: [],
-  users: [],
-  holidays: [],
+  events: [...DEFAULT_SAMPLE_EVENTS],
+  users: [...DEFAULT_SAMPLE_USERS],
+  holidays: [...DEFAULT_SAMPLE_HOLIDAYS],
   filters: { assignee: '', type: '', status: '' },
   _notifications: [],
   _eventSource: null,
@@ -1170,16 +1195,20 @@ const App = {
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.getElementById('dark-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-    // 2. โหลดข้อมูลเริ่มต้นจากเซิร์ฟเวอร์
+    // 2. เติมรายชื่อผู้ใช้ตั้งต้นทันที (เข้าใช้งานได้เลยโดยไม่ต้องรอต่อเน็ต/server)
+    this.populateLoginUsers();
+    this.fillAssigneeFilter();
+
+    // 3. โหลดข้อมูลล่าสุดจากเซิร์ฟเวอร์ (ถ้ามี)
     await this.fetchInitialData();
 
-    // 3. เริ่มต้น Server-Sent Events (Real-time stream)
+    // 4. เริ่มต้น Server-Sent Events (Real-time stream)
     this.connectSSE();
 
-    // 4. ผูกเหตุการณ์ DOM
+    // 5. ผูกเหตุการณ์ DOM
     this.bindDOMEvents();
 
-    // 5. ทดสอบการเชื่อมต่อ Google Apps Script Web App (ถ้ามี APPS_SCRIPT_URL)
+    // 6. ทดสอบการเชื่อมต่อ Google Apps Script Web App (ถ้ามี APPS_SCRIPT_URL)
     const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
     if (scriptUrl) {
       this.testAppsScriptPing();
@@ -1187,24 +1216,23 @@ const App = {
   },
 
   async fetchInitialData() {
-    this.showLoading(true, 'กำลังเชื่อมต่อเซิร์ฟเวอร์...');
     try {
       const res = await fetch('/api/events');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      if (data.events)   this.events = data.events;
-      if (data.users)    this.users = data.users;
-      if (data.holidays) this.holidays = data.holidays;
+      if (data.events && data.events.length > 0)   this.events = data.events;
+      if (data.users && data.users.length > 0)     this.users = data.users;
+      if (data.holidays && data.holidays.length > 0) this.holidays = data.holidays;
 
       this.populateLoginUsers();
       this.fillAssigneeFilter();
       this.updateConnectionStatus(true);
     } catch (err) {
-      console.error('Fetch initial data error:', err);
+      console.warn('ทำงานในโหมด Standalone / Offline:', err.message);
       this.updateConnectionStatus(false);
-      this.showToast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
+      // ยังคงมีข้อมูลตัวอย่างพร้อมใช้งานทันที
+      this.populateLoginUsers();
+      this.fillAssigneeFilter();
     }
   },
 
