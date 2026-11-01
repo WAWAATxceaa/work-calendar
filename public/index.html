@@ -1016,6 +1016,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         </div>
       </div>
 
+      <!-- Google Sheets Quick Config Button -->
+      <button class="header-btn" id="btn-open-sheets-modal" title="ตั้งค่าเชื่อมต่อ Google Sheets" style="width:auto;padding:0 12px;font-size:0.82rem;gap:6px;font-weight:700">
+        📊 <span id="hdr-sheets-status">Google Sheets</span>
+      </button>
+
       <!-- Dark Mode Toggle -->
       <button class="header-btn" id="dark-btn" title="เปลี่ยนโหมด มืด/สว่าง">🌙</button>
 
@@ -1048,14 +1053,17 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         <div class="nav-item" data-nav="holidays">
           <span class="nav-icon">🎌</span>จัดการวันหยุด
         </div>
+        <div class="nav-item" id="nav-sheets-config">
+          <span class="nav-icon">📊</span>เชื่อมต่อ Google Sheets
+        </div>
+        <div class="nav-item" id="nav-import-sheets">
+          <span class="nav-icon">📥</span>นำเข้าจาก Google Sheets
+        </div>
         <div class="nav-item" id="nav-export-csv">
           <span class="nav-icon">📤</span>ส่งออก CSV
         </div>
         <div class="nav-item" id="nav-import-csv">
           <span class="nav-icon">📥</span>นำเข้า CSV
-        </div>
-        <div class="nav-item" id="nav-import-sheets" style="display:none">
-          <span class="nav-icon">📊</span>นำเข้าจาก Google Sheets
         </div>
       </div>
 
@@ -1195,9 +1203,10 @@ const App = {
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.getElementById('dark-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-    // 2. เติมรายชื่อผู้ใช้ตั้งต้นทันที (เข้าใช้งานได้เลยโดยไม่ต้องรอต่อเน็ต/server)
+    // 2. เติมรายชื่อผู้ใช้ตั้งต้นทันที และอัปเดตสถานะ Google Sheets
     this.populateLoginUsers();
     this.fillAssigneeFilter();
+    this.updateSheetsBadge();
 
     // 3. โหลดข้อมูลล่าสุดจากเซิร์ฟเวอร์ (ถ้ามี)
     await this.fetchInitialData();
@@ -1209,7 +1218,7 @@ const App = {
     this.bindDOMEvents();
 
     // 6. ทดสอบการเชื่อมต่อ Google Apps Script Web App (ถ้ามี APPS_SCRIPT_URL)
-    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const scriptUrl = this.getAppsScriptUrl();
     if (scriptUrl) {
       this.testAppsScriptPing();
     }
@@ -1293,7 +1302,7 @@ const App = {
     const isAdmin = (u.role === 'admin');
     document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
 
-    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const scriptUrl = this.getAppsScriptUrl();
     const navSheets = document.getElementById('nav-import-sheets');
     if (navSheets) {
       navSheets.style.display = (isAdmin && scriptUrl) ? 'flex' : 'none';
@@ -1418,6 +1427,7 @@ const App = {
 
       this.closeModal('event-modal');
       this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets('upsertEvent', eventData);
     } catch (err) {
       this.showToast('บันทึกล้มเหลว: ' + err.message, 'error');
     } finally {
@@ -1440,6 +1450,7 @@ const App = {
 
       this.closeModal('event-modal');
       this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
+      this.syncToGoogleSheets('deleteEvent', { id });
     } catch (err) {
       this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1470,14 +1481,166 @@ const App = {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
       this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
+      this.syncToGoogleSheets('updateStatus', { id, status });
     } catch (err) {
       this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
     }
   },
 
+
+  // ---------- GOOGLE APPS SCRIPT & GOOGLE SHEETS INTEGRATION ----------
+  getAppsScriptUrl() {
+    const saved = localStorage.getItem('gas_api_url') || '';
+    if (saved) return saved.trim();
+    const configVal = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    return (configVal || '').trim();
+  },
+
+  updateSheetsBadge() {
+    const url = this.getAppsScriptUrl();
+    const badge = document.getElementById('hdr-sheets-status');
+    const btn = document.getElementById('btn-open-sheets-modal');
+    if (!badge || !btn) return;
+    if (url) {
+      badge.textContent = 'Google Sheets 🟢';
+      btn.style.borderColor = '#10b981';
+      btn.style.color = '#10b981';
+    } else {
+      badge.textContent = 'Google Sheets ⚪';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color = 'var(--text2)';
+    }
+  },
+
+  openGoogleSheetsModal() {
+    const curUrl = this.getAppsScriptUrl();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'sheets-modal';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+          <div class="modal-title">📊 เชื่อมต่อ Google Sheets (Apps Script Web App)</div>
+          <button class="close-btn" id="sheets-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Google Apps Script Web App URL</label>
+            <input class="form-control" id="cfg-sheets-url" value="${curUrl}" placeholder="https://script.google.com/macros/s/.../exec">
+            <small style="color:var(--text3);display:block;margin-top:6px;line-height:1.4">
+              นำ URL ที่ได้จากการ Deploy Web App (ต้องลงท้ายด้วย <code>/exec</code>) มาวางที่นี่
+            </small>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" id="btn-test-sheets-conn">🔍 ทดสอบเชื่อมต่อ (Ping)</button>
+            <button class="btn btn-primary btn-sm" id="btn-save-sheets-url">💾 บันทึก URL</button>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
+            <div style="font-weight:700;font-size:0.88rem;margin-bottom:8px">ซิงก์ข้อมูลระหว่างระบบกับ Google Sheets:</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" id="btn-modal-import-sheets">📥 นำเข้าข้อมูลจากชีต</button>
+              <button class="btn btn-secondary btn-sm" id="btn-modal-sync-sheets">📤 ส่งงานทั้งหมดไปชีต</button>
+            </div>
+          </div>
+
+          <details style="background:var(--surface2);padding:12px;border-radius:8px;font-size:0.82rem;line-height:1.6;cursor:pointer">
+            <summary style="font-weight:700;color:var(--primary)">📖 วิธีตั้งค่า Google Apps Script ใน 5 ขั้นตอน (คลิกเพื่อดู)</summary>
+            <ol style="margin-left:18px;margin-top:8px">
+              <li>เปิดสเปรดชีต Google Sheets ที่ต้องการใช้ (หรือพิมพ์ <a href="https://sheets.new" target="_blank" style="color:var(--primary)">sheets.new</a>)</li>
+              <li>ไปที่เมนู <strong>ส่วนขยาย (Extensions) → Apps Script</strong></li>
+              <li>ลบโค้ดเดิมทั้งหมด แล้วนำโค้ดจากไฟล์ <code>Code.gs</code> ในโฟลเดอร์โปรเจกต์นี้ไปวาง</li>
+              <li>กด 💾 บันทึก แล้วคลิก <strong>Deploy (การทำให้ใช้งานได้) → New deployment (การทำให้ใช้งานได้รายการใหม่)</strong></li>
+              <li>เลือกประเภท: <strong>Web app</strong><br>
+                  - Execute as: <strong>Me</strong><br>
+                  - Who has access: <strong>Anyone (ทุกคน)</strong> <em>(สำคัญมาก)</em></li>
+              <li>คัดลอก Web App URL (ลงท้ายด้วย <code>/exec</code>) มาวางในช่องด้านบน แล้วกดบันทึก</li>
+            </ol>
+          </details>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="sheets-modal-done">ปิดหน้าต่าง</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#sheets-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#sheets-modal-done').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    modal.querySelector('#btn-save-sheets-url').addEventListener('click', () => {
+      const u = modal.querySelector('#cfg-sheets-url').value.trim();
+      localStorage.setItem('gas_api_url', u);
+      this.updateSheetsBadge();
+      this.showToast(u ? 'บันทึก Web App URL เรียบร้อยแล้ว' : 'ล้างการตั้งค่า URL แล้ว', 'success');
+    });
+
+    modal.querySelector('#btn-test-sheets-conn').addEventListener('click', async () => {
+      const u = modal.querySelector('#cfg-sheets-url').value.trim();
+      if (!u) {
+        this.showToast('กรุณากรอก URL ก่อนทดสอบ', 'warning');
+        return;
+      }
+      this.showLoading(true, 'กำลังทดสอบเชื่อมต่อ Google Apps Script...');
+      try {
+        const sep = u.includes('?') ? '&' : '?';
+        const res = await fetch(u + sep + 'action=ping');
+        const data = await res.json();
+        if (data.success) {
+          this.showToast('เชื่อมต่อสำเร็จ! Google Apps Script พร้อมทำงาน', 'success');
+          localStorage.setItem('gas_api_url', u);
+          this.updateSheetsBadge();
+        } else {
+          this.showToast('ตอบกลับแต่มีข้อผิดพลาด: ' + (data.error || 'unknown'), 'warning');
+        }
+      } catch (err) {
+        console.error('Test connection error:', err);
+        this.showToast('เชื่อมต่อ Apps Script ไม่ได้ ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec', 'error');
+      } finally {
+        this.showLoading(false);
+      }
+    });
+
+    modal.querySelector('#btn-modal-import-sheets').addEventListener('click', () => {
+      this.importFromGoogleSheets();
+    });
+
+    modal.querySelector('#btn-modal-sync-sheets').addEventListener('click', () => {
+      this.syncBatchToGoogleSheets();
+    });
+  },
+
+  async syncToGoogleSheets(action, payload) {
+    const scriptUrl = this.getAppsScriptUrl();
+    if (!scriptUrl) return;
+    try {
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: action,
+          userEmail: this.currentUser ? this.currentUser.email : '',
+          ...payload
+        }),
+        redirect: 'follow'
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.warn(`Apps Script [${action}] error:`, result.error);
+      } else {
+        console.log(`✅ Sync to Google Sheets [${action}] สำเร็จ:`, result);
+      }
+      return result;
+    } catch (err) {
+      console.warn(`Sync to Google Sheets (${action}) failed:`, err.message);
+    }
+  },
+
   // ---------- GOOGLE APPS SCRIPT WEB APP INTEGRATION ----------
   async testAppsScriptPing() {
-    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const scriptUrl = this.getAppsScriptUrl();
     if (!scriptUrl) return;
     try {
       // GET: fetch(APPS_SCRIPT_URL + '?action=ping') ห้ามใส่ headers และห้ามใช้ credentials
@@ -1497,7 +1660,7 @@ const App = {
   },
 
   async importFromGoogleSheets() {
-    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const scriptUrl = this.getAppsScriptUrl();
     if (!scriptUrl) {
       this.showToast('กรุณาระบุ APPS_SCRIPT_URL ในไฟล์ config.js', 'warning');
       return;
@@ -1551,7 +1714,7 @@ const App = {
   },
 
   async syncBatchToGoogleSheets(events) {
-    const scriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : (window.APPS_SCRIPT_URL || '');
+    const scriptUrl = this.getAppsScriptUrl();
     if (!scriptUrl) return;
     try {
       // POST: fetch(APPS_SCRIPT_URL, { action: 'batchUpsertEvents', events: [...] })
@@ -2365,7 +2528,10 @@ const App = {
           <h2 style="font-size:1.3rem;font-weight:800;color:var(--text)">📊 แดชบอร์ดสรุปการปฏิบัติงาน</h2>
           <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจากเซิร์ฟเวอร์ทุกเครื่อง (Node.js + SSE)</p>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" id="btn-dash-sheets">📊 ตั้งค่า Google Sheets</button>
+          ${(this.currentUser.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="btn-dash-import-sheets">📥 นำเข้าจากชีต</button>` : ''}
+          ${(this.currentUser.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="btn-dash-sync-sheets">📤 ส่งงานไปชีต</button>` : ''}
           ${(this.currentUser.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้า CSV</button>` : ''}
           <button class="btn btn-secondary btn-sm" id="btn-export-excel">📤 ส่งออก CSV</button>
           <button class="btn btn-primary btn-sm" id="btn-export-pdf">🖨️ ส่งออก PDF / พิมพ์</button>
@@ -2437,6 +2603,13 @@ const App = {
         </div>`}
       </div>
     `;
+
+    const btnDashSheets = wrap.querySelector('#btn-dash-sheets');
+    if (btnDashSheets) btnDashSheets.addEventListener('click', () => this.openGoogleSheetsModal());
+    const btnDashImp = wrap.querySelector('#btn-dash-import-sheets');
+    if (btnDashImp) btnDashImp.addEventListener('click', () => this.importFromGoogleSheets());
+    const btnDashSync = wrap.querySelector('#btn-dash-sync-sheets');
+    if (btnDashSync) btnDashSync.addEventListener('click', () => this.syncBatchToGoogleSheets());
 
     const btnImp = wrap.querySelector('#btn-import-dash');
     if (btnImp) btnImp.addEventListener('click', () => this.triggerImportCSV());
@@ -2691,12 +2864,19 @@ const App = {
     }
 
     // CSV Nav Items
+    // Google Sheets Bindings
+    const btnHdrSheets = document.getElementById('btn-open-sheets-modal');
+    if (btnHdrSheets) btnHdrSheets.addEventListener('click', () => this.openGoogleSheetsModal());
+    const navSheetsCfg = document.getElementById('nav-sheets-config');
+    if (navSheetsCfg) navSheetsCfg.addEventListener('click', () => this.openGoogleSheetsModal());
+    const navSheetsImp = document.getElementById('nav-import-sheets');
+    if (navSheetsImp) navSheetsImp.addEventListener('click', () => this.importFromGoogleSheets());
+
+    // CSV Bindings
     const navExp = document.getElementById('nav-export-csv');
     if (navExp) navExp.addEventListener('click', () => this.exportCSV());
     const navImp = document.getElementById('nav-import-csv');
     if (navImp) navImp.addEventListener('click', () => this.triggerImportCSV());
-    const navSheets = document.getElementById('nav-import-sheets');
-    if (navSheets) navSheets.addEventListener('click', () => this.importFromGoogleSheets());
     const csvFileInput = document.getElementById('csv-file-input');
     if (csvFileInput) {
       csvFileInput.addEventListener('change', (e) => {
