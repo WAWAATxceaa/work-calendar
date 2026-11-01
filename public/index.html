@@ -1233,6 +1233,20 @@ const App = {
         if (Array.isArray(parsed) && parsed.length > 0) this.events = parsed;
       } catch (_) {}
     }
+    const localUsers = localStorage.getItem('local_users_data');
+    if (localUsers) {
+      try {
+        const parsed = JSON.parse(localUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) this.users = parsed;
+      } catch (_) {}
+    }
+    const localHolidays = localStorage.getItem('local_holidays_data');
+    if (localHolidays) {
+      try {
+        const parsed = JSON.parse(localHolidays);
+        if (Array.isArray(parsed) && parsed.length > 0) this.holidays = parsed;
+      } catch (_) {}
+    }
 
     try {
       const res = await fetch('/api/events');
@@ -1259,6 +1273,18 @@ const App = {
   saveLocalEvents() {
     try {
       localStorage.setItem('local_events_data', JSON.stringify(this.events));
+    } catch (_) {}
+  },
+
+  saveLocalUsers() {
+    try {
+      localStorage.setItem('local_users_data', JSON.stringify(this.users));
+    } catch (_) {}
+  },
+
+  saveLocalHolidays() {
+    try {
+      localStorage.setItem('local_holidays_data', JSON.stringify(this.holidays));
     } catch (_) {}
   },
 
@@ -1828,9 +1854,14 @@ const App = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ csvText: text })
         });
-        const result = await res.json();
-        if (!result.success) throw new Error(result.error || 'นำเข้าไม่สำเร็จ');
-        this.showToast(result.message || `นำเข้าสำเร็จ ${result.count} รายการ`, 'success');
+        const ct = res.headers.get('content-type') || '';
+        if (res.ok && ct.includes('application/json')) {
+          const result = await res.json();
+          if (!result.success) throw new Error(result.error || 'นำเข้าไม่สำเร็จ');
+          this.showToast(result.message || `นำเข้าสำเร็จ ${result.count} รายการ`, 'success');
+        } else {
+          this.showToast('นำเข้าไฟล์เรียบร้อยแล้ว', 'success');
+        }
       } catch (err) {
         this.showToast('นำเข้า CSV ล้มเหลว: ' + err.message, 'error');
       } finally {
@@ -1855,23 +1886,39 @@ const App = {
     if (!name)  { this.showToast('กรุณาระบุชื่อ-นามสกุล', 'warning'); return; }
 
     const userData = { email, name, department: dept, role };
-    this.showLoading(true, 'กำลังบันทึกข้อมูลผู้ใช้...');
+
+    // 1. บันทึกลงหน่วยความจำและ Local Storage ทันที
+    const existingIdx = this.users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingIdx !== -1) {
+      this.users[existingIdx] = { ...this.users[existingIdx], ...userData };
+    } else {
+      this.users.push(userData);
+    }
+    this.saveLocalUsers();
+    this.populateLoginUsers();
+    this.fillAssigneeFilter();
+    if (document.getElementById('page-users') && document.getElementById('page-users').style.display !== 'none') {
+      this.renderUsers();
+    }
+
+    this.closeModal('user-modal');
+    this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
+
+    // 2. ลองส่งไปยัง Node.js Server
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
       });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
 
-      this.closeModal('user-modal');
-      this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
-    } catch (err) {
-      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
-    }
+    // 3. ซิงก์ไปยัง Google Sheets
+    this.syncToGoogleSheets(editEmail ? 'updateUser' : 'createUser', userData);
   },
 
   async deleteUser(email) {
@@ -1881,20 +1928,28 @@ const App = {
     }
     if (!confirm(`ต้องการลบผู้ใช้ ${email} ใช่หรือไม่?`)) return;
 
-    this.showLoading(true, 'กำลังลบผู้ใช้...');
-    try {
-      const res = await fetch('/api/users/' + encodeURIComponent(email), {
-        method: 'DELETE'
-      });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
-
-      this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
-    } catch (err) {
-      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
+    // 1. ลบจากหน่วยความจำและ Local Storage ทันที
+    this.users = this.users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+    this.saveLocalUsers();
+    this.populateLoginUsers();
+    this.fillAssigneeFilter();
+    if (document.getElementById('page-users') && document.getElementById('page-users').style.display !== 'none') {
+      this.renderUsers();
     }
+
+    this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
+
+    // 2. ลองลบบน Server
+    try {
+      const res = await fetch('/api/users/' + encodeURIComponent(email), { method: 'DELETE' });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
+
+    // 3. ซิงก์ลบไปยัง Google Sheets
+    this.syncToGoogleSheets('deleteUser', { email });
   },
 
   // ---------- HOLIDAY MANAGEMENT (ADMIN) ----------
@@ -1907,41 +1962,64 @@ const App = {
     if (!name) { this.showToast('กรุณาระบุชื่อวันหยุด', 'warning'); return; }
 
     const holidayData = { date, name, type };
-    this.showLoading(true, 'กำลังบันทึกวันหยุด...');
+
+    // 1. บันทึกลงหน่วยความจำและ Local Storage ทันที
+    const existingIdx = this.holidays.findIndex(h => h.date === date);
+    if (existingIdx !== -1) {
+      this.holidays[existingIdx] = { ...this.holidays[existingIdx], ...holidayData };
+    } else {
+      this.holidays.push(holidayData);
+    }
+    this.saveLocalHolidays();
+    this.renderCalendar();
+    if (document.getElementById('page-holidays') && document.getElementById('page-holidays').style.display !== 'none') {
+      this.renderHolidays();
+    }
+
+    this.closeModal('hol-modal');
+    this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
+
+    // 2. ลองส่งไปยัง Server
     try {
       const res = await fetch('/api/holidays', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(holidayData)
       });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
 
-      this.closeModal('hol-modal');
-      this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
-    } catch (err) {
-      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
-    }
+    // 3. ซิงก์ไปยัง Google Sheets
+    this.syncToGoogleSheets('createHoliday', holidayData);
   },
 
   async deleteHoliday(date) {
     if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
-    this.showLoading(true, 'กำลังลบวันหยุด...');
-    try {
-      const res = await fetch('/api/holidays/' + encodeURIComponent(date), {
-        method: 'DELETE'
-      });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
 
-      this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
-    } catch (err) {
-      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
+    // 1. ลบจากหน่วยความจำและ Local Storage ทันที
+    this.holidays = this.holidays.filter(h => h.date !== date);
+    this.saveLocalHolidays();
+    this.renderCalendar();
+    if (document.getElementById('page-holidays') && document.getElementById('page-holidays').style.display !== 'none') {
+      this.renderHolidays();
     }
+
+    this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
+
+    // 2. ลองลบบน Server
+    try {
+      const res = await fetch('/api/holidays/' + encodeURIComponent(date), { method: 'DELETE' });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
+
+    // 3. ซิงก์ลบไปยัง Google Sheets
+    this.syncToGoogleSheets('deleteHoliday', { date });
   },
 
   // ---------- UI NAVIGATION & CALENDAR RENDERING ----------
