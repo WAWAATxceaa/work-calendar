@@ -1225,24 +1225,41 @@ const App = {
   },
 
   async fetchInitialData() {
+    // โหลดข้อมูลจาก Local Storage ก่อน (ถ้ามี)
+    const localEvents = localStorage.getItem('local_events_data');
+    if (localEvents) {
+      try {
+        const parsed = JSON.parse(localEvents);
+        if (Array.isArray(parsed) && parsed.length > 0) this.events = parsed;
+      } catch (_) {}
+    }
+
     try {
       const res = await fetch('/api/events');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (data.events && data.events.length > 0)   this.events = data.events;
-      if (data.users && data.users.length > 0)     this.users = data.users;
-      if (data.holidays && data.holidays.length > 0) this.holidays = data.holidays;
-
-      this.populateLoginUsers();
-      this.fillAssigneeFilter();
-      this.updateConnectionStatus(true);
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        const data = await res.json();
+        if (data.events && data.events.length > 0)     this.events = data.events;
+        if (data.users && data.users.length > 0)       this.users = data.users;
+        if (data.holidays && data.holidays.length > 0) this.holidays = data.holidays;
+        this.saveLocalEvents();
+        this.updateConnectionStatus(true);
+      } else {
+        this.updateConnectionStatus(false);
+      }
     } catch (err) {
       console.warn('ทำงานในโหมด Standalone / Offline:', err.message);
       this.updateConnectionStatus(false);
-      // ยังคงมีข้อมูลตัวอย่างพร้อมใช้งานทันที
-      this.populateLoginUsers();
-      this.fillAssigneeFilter();
     }
+
+    this.populateLoginUsers();
+    this.fillAssigneeFilter();
+  },
+
+  saveLocalEvents() {
+    try {
+      localStorage.setItem('local_events_data', JSON.stringify(this.events));
+    } catch (_) {}
   },
 
   populateLoginUsers() {
@@ -1412,27 +1429,44 @@ const App = {
     const eventData = {
       id, title, type, status, assignee, start, end, startTime, endTime, location, detail,
       department: department,
-      updatedBy: this.currentUser ? this.currentUser.email : ''
+      updatedBy: this.currentUser ? this.currentUser.email : '',
+      updatedAt: getNowTimestamp()
     };
 
-    this.showLoading(true, 'กำลังบันทึกข้อมูล...');
+    // 1. บันทึกลงหน่วยความจำและ Local Storage ทันที
+    const existingIdx = this.events.findIndex(e => e.id === id);
+    if (existingIdx !== -1) {
+      this.events[existingIdx] = { ...this.events[existingIdx], ...eventData };
+    } else {
+      this.events.push(eventData);
+    }
+    this.saveLocalEvents();
+    this.renderCalendar();
+    this.checkNotifications();
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+      this.renderDashboard();
+    }
+
+    this.closeModal('event-modal');
+    this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
+
+    // 2. ลองส่งไปยัง Node.js Server (ถ้ามีเซิร์ฟเวอร์รันอยู่)
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(eventData)
       });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
-
-      this.closeModal('event-modal');
-      this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets('upsertEvent', eventData);
-    } catch (err) {
-      this.showToast('บันทึกล้มเหลว: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (serverErr) {
+      console.warn('บันทึกในโหมด Local/Standalone:', serverErr.message);
     }
+
+    // 3. ซิงก์ไปยัง Google Sheets (ถ้าเชื่อมต่อไว้)
+    this.syncToGoogleSheets('upsertEvent', eventData);
   },
 
   async deleteEvent(id) {
@@ -1440,22 +1474,29 @@ const App = {
     if (!ev) return;
     if (!confirm(`คุณต้องการลบงาน "${ev.title}" ใช่หรือไม่?`)) return;
 
-    this.showLoading(true, 'กำลังลบงาน...');
-    try {
-      const res = await fetch('/api/events/' + encodeURIComponent(id), {
-        method: 'DELETE'
-      });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
-
-      this.closeModal('event-modal');
-      this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
-      this.syncToGoogleSheets('deleteEvent', { id });
-    } catch (err) {
-      this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      this.showLoading(false);
+    // 1. ลบจากหน่วยความจำและ Local Storage ทันที
+    this.events = this.events.filter(e => e.id !== id);
+    this.saveLocalEvents();
+    this.renderCalendar();
+    this.checkNotifications();
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+      this.renderDashboard();
     }
+
+    this.closeModal('event-modal');
+    this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
+
+    // 2. ลองลบบน Node.js Server
+    try {
+      const res = await fetch('/api/events/' + encodeURIComponent(id), { method: 'DELETE' });
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
+
+    // 3. ซิงก์ลบบน Google Sheets
+    this.syncToGoogleSheets('deleteEvent', { id });
   },
 
   async changeStatusInstant(id, status) {
@@ -1463,11 +1504,23 @@ const App = {
     if (!ev) return;
 
     const u = this.currentUser;
-    if (u.role === 'staff' && ev.assignee !== u.email) {
+    if (u && u.role === 'staff' && ev.assignee !== u.email) {
       this.showToast('ไม่มีสิทธิ์เปลี่ยนสถานะงานของผู้อื่น', 'error');
       return;
     }
 
+    // 1. อัปเดตในระบบทันที
+    ev.status = status;
+    ev.updatedAt = getNowTimestamp();
+    this.saveLocalEvents();
+    this.renderCalendar();
+    this.checkNotifications();
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+      this.renderDashboard();
+    }
+    this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
+
+    // 2. ลองส่งไปยัง Server
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
@@ -1475,16 +1528,17 @@ const App = {
         body: JSON.stringify({
           id: id,
           status: status,
-          updatedBy: u.email
+          updatedBy: u ? u.email : ''
         })
       });
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
-      this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
-      this.syncToGoogleSheets('updateStatus', { id, status });
-    } catch (err) {
-      this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
-    }
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        await res.json();
+      }
+    } catch (_) {}
+
+    // 3. ซิงก์ไป Google Sheets
+    this.syncToGoogleSheets('updateStatus', { id, status });
   },
 
 
@@ -1689,22 +1743,28 @@ const App = {
         return;
       }
 
-      this.showLoading(true, `กำลังบันทึก ${sheetEvents.length} รายการลงในระบบ...`);
-      let count = 0;
+      this.showLoading(true, `กำลังนำเข้า ${sheetEvents.length} รายการ...`);
       for (const item of sheetEvents) {
         if (!item.id) continue;
-        const res = await fetch('/api/events', {
+        const idx = this.events.findIndex(e => e.id === item.id);
+        if (idx !== -1) {
+          this.events[idx] = { ...this.events[idx], ...item };
+        } else {
+          this.events.push(item);
+        }
+        fetch('/api/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...item,
-            updatedAt: item.updatedAt || getNowTimestamp()
-          })
-        });
-        const resData = await res.json();
-        if (resData.success) count++;
+          body: JSON.stringify(item)
+        }).catch(() => {});
       }
-      this.showToast(`นำเข้าสำเร็จ ${count} รายการจาก Google Sheets แล้ว`, 'success');
+      this.saveLocalEvents();
+      this.renderCalendar();
+      this.checkNotifications();
+      if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+        this.renderDashboard();
+      }
+      this.showToast(`นำเข้าสำเร็จ ${sheetEvents.length} รายการจาก Google Sheets แล้ว`, 'success');
     } catch (err) {
       console.error('นำเข้าข้อมูลล้มเหลว:', err);
       this.showToast('นำเข้าข้อมูลล้มเหลว: ' + err.message, 'error');
