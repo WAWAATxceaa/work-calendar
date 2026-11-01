@@ -139,8 +139,16 @@ function broadcast() {
 // Middleware
 // =========================================================
 
+// ป้องกัน Browser แคชไฟล์หน้าเว็บเก่า
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
 
 // =========================================================
 // API — Server-Sent Events (Real-time Stream)
