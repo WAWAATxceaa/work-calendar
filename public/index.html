@@ -1,0 +1,2675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบปฏิทินการปฏิบัติงาน</title>
+
+<!-- Fonts: Google Sarabun -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================
+   RESET & CSS VARIABLES
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: 'Sarabun', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .25s ease, color .25s ease;
+  overflow-x: hidden;
+}
+
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --surface3: #e2e8f0;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text2: #475569;
+  --text3: #94a3b8;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-light: #e0f2fe;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow: 0 4px 14px rgba(0,0,0,0.08);
+  --shadow-lg: 0 14px 30px rgba(0,0,0,0.14);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-full: 9999px;
+
+  /* Type Colors */
+  --teach: #10b981;
+  --teach-bg: #ecfdf5;
+  --meet: #2563eb;
+  --meet-bg: #eff6ff;
+  --proj: #f59e0b;
+  --proj-bg: #fffbeb;
+  --hol: #ef4444;
+  --hol-bg: #fef2f2;
+  --other: #8b5cf6;
+  --other-bg: #f5f3ff;
+
+  /* Status Colors */
+  --todo: #64748b;
+  --doing: #0284c7;
+  --done: #10b981;
+
+  --sidebar-w: 240px;
+}
+
+[data-theme="dark"] {
+  --bg: #090d16;
+  --surface: #131b2e;
+  --surface2: #1a243b;
+  --surface3: #263554;
+  --border: #263554;
+  --border-strong: #3b4f77;
+  --text: #f8fafc;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --primary: #38bdf8;
+  --primary-hover: #0ea5e9;
+  --primary-light: #082f49;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow: 0 4px 14px rgba(0,0,0,0.45);
+  --shadow-lg: 0 14px 30px rgba(0,0,0,0.6);
+  --teach-bg: #064e3b;
+  --meet-bg: #1e3a8a;
+  --proj-bg: #78350f;
+  --hol-bg: #450a0a;
+  --other-bg: #3b0764;
+}
+
+/* =========================================================
+   LAYOUT
+   ========================================================= */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+.app-body { display: flex; flex: 1; position: relative; overflow: hidden; }
+
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+  transition: transform .25s ease;
+  z-index: 40;
+}
+
+#main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: calc(100vh - 68px);
+}
+
+/* =========================================================
+   HEADER & REALTIME STATUS
+   ========================================================= */
+#header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.brand-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.brand-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-title {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-top: 3px;
+  width: fit-content;
+}
+.status-pill.realtime {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.status-pill.offline {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.header-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  position: relative;
+  transition: all .2s;
+}
+.header-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--hol);
+  color: #fff;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border: 2px solid var(--surface);
+}
+
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  overflow: hidden;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* =========================================================
+   SIDEBAR NAV
+   ========================================================= */
+.nav-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 10px 20px 4px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: var(--text2);
+  border-left: 3px solid transparent;
+  transition: all .2s;
+  font-weight: 500;
+}
+.nav-item:hover {
+  background: var(--surface2);
+  color: var(--primary);
+}
+.nav-item.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-left-color: var(--primary);
+  font-weight: 600;
+}
+.nav-icon { font-size: 1.15rem; width: 22px; text-align: center; }
+
+/* =========================================================
+   FILTER BAR
+   ========================================================= */
+#filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.view-tabs {
+  display: flex;
+  background: var(--surface2);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.view-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all .2s;
+}
+.view-tab.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+}
+.filter-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+#date-display {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text);
+  min-width: 170px;
+  text-align: center;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: all .2s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--hol); color: #fff; }
+.btn-danger:hover { filter: brightness(1.08); }
+.btn-success { background: var(--teach); color: #fff; }
+.btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+
+/* =========================================================
+   CALENDAR (MONTH VIEW)
+   ========================================================= */
+#calendar-wrapper { padding: 16px; flex: 1; }
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.month-header-cell {
+  background: var(--surface2);
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text2);
+}
+.month-header-cell.weekend { color: var(--hol); }
+.month-day {
+  background: var(--surface);
+  min-height: 110px;
+  padding: 6px;
+  cursor: pointer;
+  transition: background .15s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.month-day:hover { background: var(--surface2); }
+.month-day.other-month { background: var(--surface2); opacity: 0.5; }
+.month-day.weekend { background: rgba(239, 68, 68, 0.02); }
+.month-day.holiday-day { background: var(--hol-bg); }
+.month-day.today { background: var(--primary-light); }
+.day-num-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.day-num {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.month-day.today .day-num {
+  background: var(--primary);
+  color: #fff;
+}
+.day-holiday-tag {
+  font-size: 0.68rem;
+  color: var(--hol);
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 4px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+}
+.event-pill {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  font-weight: 500;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform .1s, filter .1s;
+}
+.event-pill:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.event-pill.teach { background: var(--teach); }
+.event-pill.meet  { background: var(--meet);  }
+.event-pill.proj  { background: var(--proj);  }
+.event-pill.hol   { background: var(--hol);   }
+.event-pill.other { background: var(--other); }
+.event-pill.done-status { opacity: 0.7; text-decoration: line-through; }
+.more-events {
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-top: auto;
+}
+
+/* =========================================================
+   WEEK / DAY TIMELINE VIEW
+   ========================================================= */
+.week-grid-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.week-header-row {
+  display: grid;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+.week-header-col {
+  padding: 10px 4px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.week-header-col:last-child { border-right: none; }
+.week-header-col.is-today { color: var(--primary); background: var(--primary-light); }
+.timeline-scroll {
+  display: flex;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+.timeline-labels {
+  width: 58px;
+  flex-shrink: 0;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+}
+.time-label-slot {
+  height: 52px;
+  font-size: 0.72rem;
+  color: var(--text3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-cols-wrap {
+  flex: 1;
+  display: grid;
+  position: relative;
+  background: var(--border);
+  gap: 1px;
+}
+.timeline-day-col {
+  background: var(--surface);
+  position: relative;
+}
+.timeline-hour-slot {
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.timeline-hour-slot:hover { background: var(--surface2); }
+.timeline-event-card {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: var(--shadow-sm);
+  line-height: 1.3;
+}
+
+/* =========================================================
+   EVENT DETAIL POPUP
+   ========================================================= */
+.detail-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 330px;
+  padding: 18px;
+  position: fixed;
+  z-index: 1000;
+  animation: slideUp .2s ease;
+}
+.detail-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  color: #fff;
+  font-weight: 600;
+}
+.detail-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 10px 0;
+  color: var(--text);
+  line-height: 1.3;
+}
+.detail-meta-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+.detail-meta-icon { width: 18px; text-align: center; font-size: 0.95rem; flex-shrink: 0; }
+.quick-status-bar {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 10px;
+  background: var(--surface2);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.status-pill-btn {
+  flex: 1;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .2s;
+  text-align: center;
+}
+.status-pill-btn.active.todo  { background: var(--todo); color: #fff; }
+.status-pill-btn.active.doing { background: var(--doing); color: #fff; }
+.status-pill-btn.active.done  { background: var(--done); color: #fff; }
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn .2s;
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp .25s ease;
+  border: 1px solid var(--border);
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+.modal-body { padding: 20px; }
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--text3);
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+}
+.close-btn:hover { background: var(--surface2); color: var(--text); }
+
+.form-group { margin-bottom: 14px; }
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 5px;
+}
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color .2s;
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+textarea.form-control { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+.dashboard-container { padding: 20px; }
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dash-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.dash-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 5px;
+  background: var(--primary);
+}
+.dash-card.c-todo::before { background: var(--todo); }
+.dash-card.c-doing::before { background: var(--doing); }
+.dash-card.c-done::before { background: var(--done); }
+.dash-card.c-overdue::before { background: var(--hol); }
+.dash-num { font-size: 2.2rem; font-weight: 800; color: var(--text); line-height: 1; }
+.dash-label { font-size: 0.85rem; color: var(--text2); margin-top: 6px; font-weight: 600; }
+
+.dash-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.dash-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.data-table th, .data-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.data-table th {
+  background: var(--surface2);
+  font-weight: 700;
+  color: var(--text2);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+.data-table tr:hover td { background: var(--surface2); }
+
+.chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.chip.teach { background: var(--teach); }
+.chip.meet  { background: var(--meet);  }
+.chip.proj  { background: var(--proj);  }
+.chip.hol   { background: var(--hol);   }
+.chip.other { background: var(--other); }
+.chip.todo  { background: var(--todo);  }
+.chip.doing { background: var(--doing); }
+.chip.done  { background: var(--done);  }
+.chip.admin { background: #7c3aed; }
+.chip.head  { background: #0284c7; }
+.chip.staff { background: #059669; }
+
+/* =========================================================
+   NOTIFICATION DROPDOWN
+   ========================================================= */
+.notif-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 60px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 320px;
+  z-index: 200;
+  animation: slideUp .2s;
+  overflow: hidden;
+}
+.notif-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: var(--surface2);
+}
+.notif-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .15s;
+}
+.notif-item:hover { background: var(--primary-light); }
+.notif-item:last-child { border-bottom: none; }
+.notif-title { font-weight: 600; font-size: 0.86rem; color: var(--text); }
+.notif-time { font-size: 0.75rem; color: var(--text2); margin-top: 3px; }
+
+/* =========================================================
+   LOGIN SCREEN
+   ========================================================= */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0369a1, #1e3a8a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+.login-box {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 36px;
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  position: relative;
+}
+.login-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 16px;
+}
+.login-title { font-size: 1.35rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.login-subtitle { font-size: 0.88rem; color: var(--text2); margin-bottom: 24px; }
+.login-warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  text-align: left;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+[data-theme="dark"] .login-warning-box {
+  background: #450a0a;
+  border-color: #7f1d1d;
+  color: #fecaca;
+}
+
+/* =========================================================
+   TOAST & LOADING
+   ========================================================= */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.88rem;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp .25s ease;
+  min-width: 240px;
+  max-width: 380px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toast.success { background: #059669; }
+.toast.error   { background: #dc2626; }
+.toast.info    { background: #0284c7; }
+.toast.warning { background: #d97706; }
+
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  z-index: 9998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: #fff;
+  font-weight: 600;
+}
+#loading-overlay.show { display: flex; }
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(255,255,255,0.25);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* =========================================================
+   RESPONSIVE & PRINT
+   ========================================================= */
+@media (max-width: 768px) {
+  #sidebar {
+    position: fixed;
+    left: 0;
+    top: 68px;
+    bottom: 0;
+    z-index: 90;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  #sidebar.open { transform: translateX(0); }
+  .form-row { grid-template-columns: 1fr; }
+  .dashboard-cards { grid-template-columns: 1fr 1fr; }
+  .notif-dropdown { right: 10px; width: calc(100vw - 20px); }
+  #filter-bar { gap: 6px; padding: 10px; }
+  .month-day { min-height: 80px; padding: 3px; }
+  .day-num { width: 22px; height: 22px; font-size: 0.75rem; }
+}
+
+@media print {
+  #header, #sidebar, #filter-bar, .header-actions, .btn, .table-action-btn, #toast-container, .modal-overlay {
+    display: none !important;
+  }
+  body, #main-content, #page-dashboard {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+  }
+  .dash-card, .dash-section {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     LOGIN SCREEN
+     ========================================================= -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">📅</div>
+    <div class="login-title">ระบบปฏิทินการปฏิบัติงาน</div>
+    <div class="login-subtitle">ระบบเรียลไทม์ผ่านเครือข่าย (Node.js Server)</div>
+
+    <div style="text-align:left;margin-bottom:14px">
+      <label style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:6px;display:block">
+        👤 เลือกผู้ใช้งานเพื่อเข้าสู่ระบบ:
+      </label>
+      <select class="form-control" id="login-user-select" style="width:100%;padding:10px 12px;font-size:0.95rem;border-radius:8px">
+        <option value="">-- กำลังโหลดรายชื่อผู้ใช้จากเซิร์ฟเวอร์... --</option>
+      </select>
+    </div>
+
+    <!-- Login Button -->
+    <button class="btn btn-primary" id="btn-login-submit" style="width:100%;padding:12px;font-size:0.95rem;margin-bottom:14px">
+      🚀 เข้าสู่ระบบ
+    </button>
+
+    <div style="font-size:0.75rem;color:var(--text3);line-height:1.5">
+      บันทึกข้อมูลถาวรในเซิร์ฟเวอร์ (JSON File) พร้อมส่งข้อมูลแบบ Real-time (SSE) ไปยังทุกเครื่องในเครือข่ายทันที
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     MAIN APPLICATION
+     ========================================================= -->
+<div id="app" style="display:none">
+  <!-- Header -->
+  <header id="header">
+    <button class="header-btn" id="btn-toggle-sidebar" title="เปิด/ปิดเมนู">☰</button>
+    <div class="brand-area">
+      <div class="brand-title-wrap">
+        <span>📅</span>
+        <span class="brand-title">ระบบปฏิทินการปฏิบัติงาน</span>
+      </div>
+      <!-- Connection Status indicator -->
+      <span class="status-pill realtime" id="connection-status-pill">
+        <span id="conn-dot">🟢</span> <span id="conn-text">เชื่อมต่อเซิร์ฟเวอร์แล้ว</span>
+      </span>
+    </div>
+
+    <div class="header-actions">
+      <!-- User Profile Badge -->
+      <div class="user-profile-badge" title="ข้อมูลผู้ใช้">
+        <div class="user-avatar" id="hdr-avatar">U</div>
+        <div style="text-align:left;line-height:1.2">
+          <div style="font-weight:700" id="hdr-name">ผู้ใช้</div>
+          <div style="font-size:0.72rem;color:var(--text2)">
+            <span id="hdr-dept"></span> (<span id="hdr-role"></span>)
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark Mode Toggle -->
+      <button class="header-btn" id="dark-btn" title="เปลี่ยนโหมด มืด/สว่าง">🌙</button>
+
+      <!-- Notification Bell -->
+      <button class="header-btn" id="notif-btn" title="การแจ้งเตือนงาน">
+        🔔<span class="badge" id="notif-badge" style="display:none">0</span>
+      </button>
+
+      <!-- Logout -->
+      <button class="header-btn" id="btn-logout" title="ออกจากระบบ">🚪</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="nav-section-title">เมนูการทำงาน</div>
+      <div class="nav-item active" data-nav="calendar">
+        <span class="nav-icon">📆</span>ปฏิทินงาน
+      </div>
+      <div class="nav-item" data-nav="dashboard">
+        <span class="nav-icon">📊</span>แดชบอร์ดสรุป
+      </div>
+
+      <div id="admin-menu-section" style="display:none">
+        <div class="nav-section-title" style="margin-top:12px">ระบบผู้ดูแล (Admin)</div>
+        <div class="nav-item" data-nav="users">
+          <span class="nav-icon">👥</span>จัดการผู้ใช้
+        </div>
+        <div class="nav-item" data-nav="holidays">
+          <span class="nav-icon">🎌</span>จัดการวันหยุด
+        </div>
+        <div class="nav-item" id="nav-export-csv">
+          <span class="nav-icon">📤</span>ส่งออก CSV
+        </div>
+        <div class="nav-item" id="nav-import-csv">
+          <span class="nav-icon">📥</span>นำเข้า CSV
+        </div>
+      </div>
+
+      <div style="margin-top:auto;padding:16px 20px;font-size:0.75rem;color:var(--text3);border-top:1px solid var(--border)">
+        <div>ฐานข้อมูล: <strong id="db-type-label">Node.js Server (JSON)</strong></div>
+        <div style="margin-top:2px">ปี พ.ศ. ภาษาไทย 100%</div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content">
+      <!-- Filter Bar (Calendar) -->
+      <div id="filter-bar">
+        <div class="view-tabs">
+          <button class="view-tab active" data-view="month">เดือน</button>
+          <button class="view-tab" data-view="week">สัปดาห์</button>
+          <button class="view-tab" data-view="day">วัน</button>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" id="btn-today">วันนี้</button>
+        <button class="btn btn-secondary btn-sm" id="btn-nav-prev">‹</button>
+        <span id="date-display"></span>
+        <button class="btn btn-secondary btn-sm" id="btn-nav-next">›</button>
+
+        <select class="filter-select" id="f-assignee">
+          <option value="">ทุกคน</option>
+        </select>
+
+        <select class="filter-select" id="f-type">
+          <option value="">ทุกประเภท</option>
+          <option value="teach">🟢 สอน/อบรม</option>
+          <option value="meet">🔵 ประชุม</option>
+          <option value="proj">🟠 โครงการ</option>
+          <option value="hol">🔴 วันหยุด</option>
+          <option value="other">🟣 อื่นๆ</option>
+        </select>
+
+        <select class="filter-select" id="f-status">
+          <option value="">ทุกสถานะ</option>
+          <option value="todo">รอดำเนินการ</option>
+          <option value="doing">กำลังดำเนินการ</option>
+          <option value="done">เสร็จแล้ว</option>
+        </select>
+
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" id="btn-open-create-event">
+            ➕ เพิ่มงาน
+          </button>
+        </div>
+      </div>
+
+      <!-- Pages -->
+      <div id="page-calendar" id="calendar-wrapper"></div>
+      <div id="page-dashboard" class="dashboard-container" style="display:none"></div>
+      <div id="page-users" style="display:none;padding:20px"></div>
+      <div id="page-holidays" style="display:none;padding:20px"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Notification Dropdown -->
+<div class="notif-dropdown" id="notif-dropdown" style="display:none"></div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div id="loading-text">กำลังเชื่อมต่อเซิร์ฟเวอร์...</div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Hidden file input for CSV import -->
+<input type="file" id="csv-file-input" accept=".csv" style="display:none">
+
+<!-- =========================================================
+     APPLICATION CORE (NODE.JS + SSE REAL-TIME)
+     ========================================================= -->
+<script>
+// Utilities
+function genId() {
+  return 'ev-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+}
+
+function getNowTimestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// =========================================================
+// APP OBJECT
+// =========================================================
+const App = {
+  currentUser: null,
+  currentView: 'month',
+  currentDate: new Date(2025, 0, 15),
+  events: [],
+  users: [],
+  holidays: [],
+  filters: { assignee: '', type: '', status: '' },
+  _notifications: [],
+  _eventSource: null,
+
+  // ---------- INIT ----------
+  async init() {
+    // 1. Theme
+    const savedTheme = localStorage.getItem('app_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.getElementById('dark-btn').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+
+    // 2. โหลดข้อมูลเริ่มต้นจากเซิร์ฟเวอร์
+    await this.fetchInitialData();
+
+    // 3. เริ่มต้น Server-Sent Events (Real-time stream)
+    this.connectSSE();
+
+    // 4. ผูกเหตุการณ์ DOM
+    this.bindDOMEvents();
+  },
+
+  async fetchInitialData() {
+    this.showLoading(true, 'กำลังเชื่อมต่อเซิร์ฟเวอร์...');
+    try {
+      const res = await fetch('/api/events');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.events)   this.events = data.events;
+      if (data.users)    this.users = data.users;
+      if (data.holidays) this.holidays = data.holidays;
+
+      this.populateLoginUsers();
+      this.fillAssigneeFilter();
+      this.updateConnectionStatus(true);
+    } catch (err) {
+      console.error('Fetch initial data error:', err);
+      this.updateConnectionStatus(false);
+      this.showToast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  populateLoginUsers() {
+    const sel = document.getElementById('login-user-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- เลือกผู้ใช้เพื่อเข้าสู่ระบบ --</option>';
+    this.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.email;
+      opt.textContent = `${u.name} — ${u.department || 'ทั่วไป'} (${this.getRoleLabel(u.role)})`;
+      sel.appendChild(opt);
+    });
+    if (this.users.length > 0) {
+      sel.value = this.users[0].email;
+    }
+  },
+
+  loginSubmit() {
+    const sel = document.getElementById('login-user-select');
+    const email = sel ? sel.value : '';
+    if (!email) {
+      this.showToast('กรุณาเลือกผู้ใช้งานเพื่อเข้าสู่ระบบ', 'warning');
+      return;
+    }
+    const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      this.showToast('ไม่พบข้อมูลผู้ใช้ในระบบ', 'error');
+      return;
+    }
+    this.currentUser = { ...user };
+    this.showApp();
+    this.showToast(`ยินดีต้อนรับ คุณ${this.currentUser.name} (${this.getRoleLabel(this.currentUser.role)})`, 'success');
+  },
+
+  logout() {
+    if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
+    this.currentUser = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  },
+
+  showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    const u = this.currentUser;
+    document.getElementById('hdr-name').textContent = u.name;
+    const avatarEl = document.getElementById('hdr-avatar');
+    if (u.photoURL) {
+      avatarEl.innerHTML = `<img src="${u.photoURL}" alt="${u.name}">`;
+    } else {
+      avatarEl.textContent = u.name.charAt(0);
+    }
+    document.getElementById('hdr-dept').textContent = u.department || 'ทั่วไป';
+    document.getElementById('hdr-role').textContent = this.getRoleLabel(u.role);
+
+    const isAdmin = (u.role === 'admin');
+    document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+
+    this.navigate('calendar');
+  },
+
+  // ---------- REAL-TIME SSE (SERVER-SENT EVENTS) ----------
+  connectSSE() {
+    if (this._eventSource) {
+      try { this._eventSource.close(); } catch (_) {}
+    }
+
+    this._eventSource = new EventSource('/api/stream');
+
+    this._eventSource.onopen = () => {
+      this.updateConnectionStatus(true);
+    };
+
+    this._eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.events)   this.events = data.events;
+        if (data.users) {
+          this.users = data.users;
+          this.populateLoginUsers();
+          this.fillAssigneeFilter();
+
+          if (this.currentUser) {
+            const fresh = this.users.find(u => u.email.toLowerCase() === this.currentUser.email.toLowerCase());
+            if (fresh) {
+              this.currentUser.role = fresh.role || this.currentUser.role;
+              this.currentUser.department = fresh.department || this.currentUser.department;
+              this.currentUser.name = fresh.name || this.currentUser.name;
+              document.getElementById('hdr-name').textContent = this.currentUser.name;
+              document.getElementById('hdr-dept').textContent = this.currentUser.department;
+              document.getElementById('hdr-role').textContent = this.getRoleLabel(this.currentUser.role);
+              const isAdmin = (this.currentUser.role === 'admin');
+              document.getElementById('admin-menu-section').style.display = isAdmin ? 'block' : 'none';
+            }
+          }
+        }
+        if (data.holidays) this.holidays = data.holidays;
+
+        this.updateConnectionStatus(true);
+        this.renderCalendar();
+        this.checkNotifications();
+
+        if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').style.display !== 'none') {
+          this.renderDashboard();
+        }
+        if (document.getElementById('page-users') && document.getElementById('page-users').style.display !== 'none') {
+          this.renderUsers();
+        }
+        if (document.getElementById('page-holidays') && document.getElementById('page-holidays').style.display !== 'none') {
+          this.renderHolidays();
+        }
+      } catch (err) {
+        console.error('SSE data parse error:', err);
+      }
+    };
+
+    this._eventSource.onerror = () => {
+      this.updateConnectionStatus(false);
+    };
+  },
+
+  updateConnectionStatus(isConnected) {
+    const pill = document.getElementById('connection-status-pill');
+    const dot  = document.getElementById('conn-dot');
+    const txt  = document.getElementById('conn-text');
+    if (!pill) return;
+
+    if (isConnected) {
+      pill.className = 'status-pill realtime';
+      dot.textContent = '🟢';
+      txt.textContent = 'เชื่อมต่อเซิร์ฟเวอร์แล้ว';
+    } else {
+      pill.className = 'status-pill offline';
+      dot.textContent = '⚠️';
+      txt.textContent = 'ออฟไลน์';
+    }
+  },
+
+  // ---------- EVENT CRUD ----------
+  async saveEvent(editId) {
+    const title     = document.getElementById('ev-title').value.trim();
+    const type      = document.getElementById('ev-type').value;
+    const status    = document.getElementById('ev-status').value;
+    const assignee  = document.getElementById('ev-assignee').value;
+    const start     = document.getElementById('ev-start').value;
+    const end       = document.getElementById('ev-end').value || start;
+    const startTime = document.getElementById('ev-startTime').value;
+    const endTime   = document.getElementById('ev-endTime').value;
+    const location  = document.getElementById('ev-location').value.trim();
+    const detail    = document.getElementById('ev-detail').value.trim();
+
+    if (!title) { this.showToast('กรุณาระบุชื่องาน', 'warning'); return; }
+    if (!start) { this.showToast('กรุณาระบุวันเริ่มต้น', 'warning'); return; }
+    if (end < start) { this.showToast('วันสิ้นสุดต้องไม่น้อยกว่าวันเริ่มต้น', 'warning'); return; }
+
+    const id = editId || genId();
+    const targetUser = this.users.find(u => u.email === assignee);
+    const department = targetUser ? (targetUser.department || '') : '';
+
+    const eventData = {
+      id, title, type, status, assignee, start, end, startTime, endTime, location, detail,
+      department: department,
+      updatedBy: this.currentUser ? this.currentUser.email : ''
+    };
+
+    this.showLoading(true, 'กำลังบันทึกข้อมูล...');
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
+      this.closeModal('event-modal');
+      this.showToast(editId ? 'แก้ไขงานเรียบร้อยแล้ว' : 'เพิ่มงานใหม่เรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('บันทึกล้มเหลว: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteEvent(id) {
+    const ev = this.events.find(e => e.id === id);
+    if (!ev) return;
+    if (!confirm(`คุณต้องการลบงาน "${ev.title}" ใช่หรือไม่?`)) return;
+
+    this.showLoading(true, 'กำลังลบงาน...');
+    try {
+      const res = await fetch('/api/events/' + encodeURIComponent(id), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
+      this.closeModal('event-modal');
+      this.showToast('ลบงานเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('ลบงานไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async changeStatusInstant(id, status) {
+    const ev = this.events.find(e => e.id === id);
+    if (!ev) return;
+
+    const u = this.currentUser;
+    if (u.role === 'staff' && ev.assignee !== u.email) {
+      this.showToast('ไม่มีสิทธิ์เปลี่ยนสถานะงานของผู้อื่น', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: id,
+          status: status,
+          updatedBy: u.email
+        })
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
+      this.showToast(`เปลี่ยนสถานะเป็น "${this.getStatusLabel(status)}" แล้ว`, 'success');
+    } catch (err) {
+      this.showToast('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  // ---------- CSV EXPORT & IMPORT ----------
+  exportCSV() {
+    window.location.href = '/api/export-csv';
+    this.showToast('กำลังดาวน์โหลดไฟล์ CSV...', 'success');
+  },
+
+  triggerImportCSV() {
+    const input = document.getElementById('csv-file-input');
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+  },
+
+  async handleCSVFileSelect(file) {
+    if (!file) return;
+    this.showLoading(true, 'กำลังอ่านไฟล์ CSV...');
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      try {
+        const res = await fetch('/api/import-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ csvText: text })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error || 'นำเข้าไม่สำเร็จ');
+        this.showToast(result.message || `นำเข้าสำเร็จ ${result.count} รายการ`, 'success');
+      } catch (err) {
+        this.showToast('นำเข้า CSV ล้มเหลว: ' + err.message, 'error');
+      } finally {
+        this.showLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      this.showLoading(false);
+      this.showToast('อ่านไฟล์ไม่สำเร็จ', 'error');
+    };
+    reader.readAsText(file, 'utf-8');
+  },
+
+  // ---------- USER MANAGEMENT (ADMIN) ----------
+  async saveUser(editEmail) {
+    const email = document.getElementById('u-email').value.trim().toLowerCase();
+    const name  = document.getElementById('u-name').value.trim();
+    const dept  = document.getElementById('u-dept').value.trim();
+    const role  = document.getElementById('u-role').value;
+
+    if (!email) { this.showToast('กรุณาระบุอีเมล', 'warning'); return; }
+    if (!name)  { this.showToast('กรุณาระบุชื่อ-นามสกุล', 'warning'); return; }
+
+    const userData = { email, name, department: dept, role };
+    this.showLoading(true, 'กำลังบันทึกข้อมูลผู้ใช้...');
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
+      this.closeModal('user-modal');
+      this.showToast('บันทึกข้อมูลผู้ใช้เรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteUser(email) {
+    if (this.currentUser && email === this.currentUser.email) {
+      this.showToast('ไม่สามารถลบบัญชีตนเองได้', 'error');
+      return;
+    }
+    if (!confirm(`ต้องการลบผู้ใช้ ${email} ใช่หรือไม่?`)) return;
+
+    this.showLoading(true, 'กำลังลบผู้ใช้...');
+    try {
+      const res = await fetch('/api/users/' + encodeURIComponent(email), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
+      this.showToast('ลบผู้ใช้เรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- HOLIDAY MANAGEMENT (ADMIN) ----------
+  async saveHoliday() {
+    const date = document.getElementById('h-date').value;
+    const name = document.getElementById('h-name').value.trim();
+    const type = document.getElementById('h-type').value;
+
+    if (!date) { this.showToast('กรุณาระบุวันที่', 'warning'); return; }
+    if (!name) { this.showToast('กรุณาระบุชื่อวันหยุด', 'warning'); return; }
+
+    const holidayData = { date, name, type };
+    this.showLoading(true, 'กำลังบันทึกวันหยุด...');
+    try {
+      const res = await fetch('/api/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(holidayData)
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
+      this.closeModal('hol-modal');
+      this.showToast('บันทึกวันหยุดเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async deleteHoliday(date) {
+    if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
+    this.showLoading(true, 'กำลังลบวันหยุด...');
+    try {
+      const res = await fetch('/api/holidays/' + encodeURIComponent(date), {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'ลบไม่สำเร็จ');
+
+      this.showToast('ลบวันหยุดเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      this.showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  // ---------- UI NAVIGATION & CALENDAR RENDERING ----------
+  navigate(page) {
+    ['calendar','dashboard','users','holidays'].forEach(p => {
+      const el = document.getElementById('page-' + p);
+      if (el) el.style.display = (p === page) ? 'block' : 'none';
+    });
+    document.getElementById('filter-bar').style.display = (page === 'calendar') ? 'flex' : 'none';
+
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.nav === page);
+    });
+
+    if (page === 'calendar')  this.renderCalendar();
+    if (page === 'dashboard') this.renderDashboard();
+    if (page === 'users')     this.renderUsers();
+    if (page === 'holidays')  this.renderHolidays();
+
+    if (window.innerWidth <= 768) {
+      document.getElementById('sidebar').classList.remove('open');
+    }
+  },
+
+  fillAssigneeFilter() {
+    const sel = document.getElementById('f-assignee');
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">ทุกคน</option>';
+    this.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.email;
+      opt.textContent = `${u.name} (${u.department || 'ทั่วไป'})`;
+      sel.appendChild(opt);
+    });
+    sel.value = curVal;
+  },
+
+  toYMD(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
+  formatThaiDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const y = Number(parts[0]), m = Number(parts[1]), day = Number(parts[2]);
+    const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${day} ${months[m - 1]} ${y + 543}`;
+  },
+
+  getThaiMonth(d) {
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    return months[d.getMonth()];
+  },
+
+  getTypeLabel(t) {
+    return { teach: 'สอน/อบรม', meet: 'ประชุม', proj: 'โครงการ', hol: 'วันหยุด', other: 'อื่นๆ' }[t] || t;
+  },
+
+  getStatusLabel(s) {
+    return { todo: 'รอดำเนินการ', doing: 'กำลังดำเนินการ', done: 'เสร็จแล้ว' }[s] || s;
+  },
+
+  getRoleLabel(r) {
+    return { admin: 'ผู้ดูแลระบบ', head: 'หัวหน้าแผนก', staff: 'เจ้าหน้าที่' }[r] || r;
+  },
+
+  getUserName(email) {
+    const u = this.users.find(x => x.email === email);
+    return u ? u.name : email;
+  },
+
+  getFilteredEvents() {
+    const u = this.currentUser;
+    return this.events.filter(ev => {
+      if (u && u.role === 'head' && u.department) {
+        const deptUsers = this.users.filter(x => x.department === u.department).map(x => x.email);
+        if (deptUsers.indexOf(ev.assignee) === -1 && ev.assignee !== u.email) {
+          return false;
+        }
+      }
+      if (this.filters.assignee && ev.assignee !== this.filters.assignee) return false;
+      if (this.filters.type     && ev.type     !== this.filters.type)     return false;
+      if (this.filters.status   && ev.status   !== this.filters.status)   return false;
+      return true;
+    });
+  },
+
+  getHolidayMap() {
+    const map = {};
+    this.holidays.forEach(h => { map[h.date] = h; });
+    return map;
+  },
+
+  renderCalendar() {
+    const wrap = document.getElementById('page-calendar');
+    wrap.innerHTML = '';
+    if (this.currentView === 'month')      this.renderMonth(wrap);
+    else if (this.currentView === 'week')  this.renderWeek(wrap);
+    else                                   this.renderDay(wrap);
+  },
+
+  renderMonth(wrap) {
+    const d = this.currentDate;
+    const year = d.getFullYear(), month = d.getMonth();
+    document.getElementById('date-display').textContent =
+      `${this.getThaiMonth(d)} พ.ศ. ${year + 543}`;
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay  = new Date(year, month + 1, 0);
+    const startDow = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    const todayStr  = this.toYMD(new Date());
+    const holMap    = this.getHolidayMap();
+    const events    = this.getFilteredEvents();
+    const daysName  = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+
+    let html = `<div class="month-grid">`;
+    daysName.forEach((dn, idx) => {
+      html += `<div class="month-header-cell${(idx === 0 || idx === 6) ? ' weekend' : ''}">${dn}</div>`;
+    });
+
+    for (let i = 0; i < startDow; i++) {
+      const pd = new Date(year, month, -startDow + i + 1);
+      html += `<div class="month-day other-month"><div class="day-num-box"><span class="day-num">${pd.getDate()}</span></div></div>`;
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const hol = holMap[dateStr];
+      const isToday = (dateStr === todayStr);
+      const dow = new Date(year, month, day).getDay();
+      const isWeekend = (dow === 0 || dow === 6);
+
+      const dayEvents = events.filter(ev => {
+        const evEnd = ev.end || ev.start;
+        return ev.start <= dateStr && evEnd >= dateStr;
+      });
+
+      let cls = 'month-day';
+      if (isWeekend) cls += ' weekend';
+      if (hol)       cls += ' holiday-day';
+      if (isToday)   cls += ' today';
+
+      html += `<div class="${cls}" data-date="${dateStr}">
+        <div class="day-num-box">
+          <span class="day-num">${day}</span>
+          ${dayEvents.length > 0 ? `<span style="font-size:0.65rem;color:var(--text3)">${dayEvents.length}</span>` : ''}
+        </div>`;
+
+      if (hol) {
+        html += `<div class="day-holiday-tag" title="${hol.name}">🎌 ${hol.name}</div>`;
+      }
+
+      const maxShow = 3;
+      dayEvents.slice(0, maxShow).forEach(ev => {
+        const isDone = ev.status === 'done';
+        const isMulti = ev.end && ev.end !== ev.start;
+        html += `<div class="event-pill ${ev.type}${isDone ? ' done-status' : ''}" 
+                      data-event-id="${ev.id}"
+                      title="${ev.title} (${this.getStatusLabel(ev.status)})">
+          ${isMulti ? '↔ ' : ''}${ev.startTime ? ev.startTime + ' ' : ''}${ev.title}
+        </div>`;
+      });
+
+      if (dayEvents.length > maxShow) {
+        html += `<div class="more-events" data-more-date="${dateStr}">+ อีก ${dayEvents.length - maxShow} งาน</div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    const totalRendered = startDow + totalDays;
+    const remaining = (7 - (totalRendered % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      html += `<div class="month-day other-month"><div class="day-num-box"><span class="day-num">${i}</span></div></div>`;
+    }
+
+    html += `</div>`;
+    wrap.innerHTML = html;
+  },
+
+  renderWeek(wrap) {
+    const d = new Date(this.currentDate);
+    const dow = d.getDay();
+    const sunday = new Date(d);
+    sunday.setDate(d.getDate() - dow);
+
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dayDate = new Date(sunday);
+      dayDate.setDate(sunday.getDate() + i);
+      days.push(dayDate);
+    }
+
+    const startStr = this.toYMD(days[0]);
+    const endStr   = this.toYMD(days[6]);
+    document.getElementById('date-display').textContent =
+      `${this.formatThaiDate(startStr)} – ${this.formatThaiDate(endStr)}`;
+
+    const todayStr = this.toYMD(new Date());
+    const dayNames = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+    const events   = this.getFilteredEvents();
+
+    let html = `<div class="week-grid-container">`;
+    html += `<div class="week-header-row" style="grid-template-columns: 58px repeat(7, 1fr);">`;
+    html += `<div class="week-header-col">เวลา</div>`;
+    days.forEach(dd => {
+      const ds = this.toYMD(dd);
+      const isToday = (ds === todayStr);
+      html += `<div class="week-header-col${isToday ? ' is-today' : ''}">
+        ${dayNames[dd.getDay()]}<br><span style="font-size:1.1rem">${dd.getDate()}</span>
+      </div>`;
+    });
+    html += `</div>`;
+
+    html += `<div class="timeline-scroll">`;
+    html += `<div class="timeline-labels">`;
+    for (let h = 0; h < 24; h++) {
+      html += `<div class="time-label-slot">${String(h).padStart(2,'0')}:00</div>`;
+    }
+    html += `</div>`;
+
+    html += `<div class="timeline-cols-wrap" style="grid-template-columns: repeat(7, 1fr);">`;
+    days.forEach(dd => {
+      const ds = this.toYMD(dd);
+      const dayEvents = events.filter(ev => {
+        const evEnd = ev.end || ev.start;
+        return ev.start <= ds && evEnd >= ds;
+      });
+
+      html += `<div class="timeline-day-col">`;
+      for (let h = 0; h < 24; h++) {
+        html += `<div class="timeline-hour-slot" data-slot-date="${ds}" data-slot-time="${String(h).padStart(2,'0')}:00"></div>`;
+      }
+
+      dayEvents.forEach(ev => {
+        let top = 40;
+        let height = 48;
+        if (ev.startTime) {
+          const [sh, sm] = ev.startTime.split(':').map(Number);
+          top = (sh + (sm || 0) / 60) * 52;
+          if (ev.endTime) {
+            const [eh, em] = ev.endTime.split(':').map(Number);
+            height = Math.max(((eh + (em || 0) / 60) - (sh + (sm || 0) / 60)) * 52, 28);
+          }
+        }
+        html += `<div class="timeline-event-card ${ev.type}" 
+                      style="top:${top}px;height:${height}px;" 
+                      data-event-id="${ev.id}">
+          <strong>${ev.title}</strong><br>
+          ${ev.startTime ? ev.startTime + (ev.endTime ? '–'+ev.endTime : '') : 'ทั้งวัน'}
+        </div>`;
+      });
+
+      html += `</div>`;
+    });
+    html += `</div></div></div>`;
+    wrap.innerHTML = html;
+  },
+
+  renderDay(wrap) {
+    const d = this.currentDate;
+    const ds = this.toYMD(d);
+    document.getElementById('date-display').textContent = this.formatThaiDate(ds);
+
+    const events = this.getFilteredEvents().filter(ev => {
+      const evEnd = ev.end || ev.start;
+      return ev.start <= ds && evEnd >= ds;
+    });
+
+    let html = `<div class="week-grid-container">`;
+    html += `<div class="week-header-row" style="grid-template-columns: 58px 1fr;padding:6px 0">
+      <div class="week-header-col">เวลา</div>
+      <div class="week-header-col is-today" style="text-align:left;padding-left:16px">
+        กำหนดการประจำวัน — ${this.formatThaiDate(ds)}
+      </div>
+    </div>`;
+
+    html += `<div class="timeline-scroll">`;
+    html += `<div class="timeline-labels">`;
+    for (let h = 0; h < 24; h++) {
+      html += `<div class="time-label-slot">${String(h).padStart(2,'0')}:00</div>`;
+    }
+    html += `</div>`;
+
+    html += `<div class="timeline-cols-wrap" style="grid-template-columns: 1fr;">`;
+    html += `<div class="timeline-day-col">`;
+    for (let h = 0; h < 24; h++) {
+      html += `<div class="timeline-hour-slot" data-slot-date="${ds}" data-slot-time="${String(h).padStart(2,'0')}:00"></div>`;
+    }
+
+    events.forEach(ev => {
+      let top = 40;
+      let height = 52;
+      if (ev.startTime) {
+        const [sh, sm] = ev.startTime.split(':').map(Number);
+        top = (sh + (sm || 0) / 60) * 52;
+        if (ev.endTime) {
+          const [eh, em] = ev.endTime.split(':').map(Number);
+          height = Math.max(((eh + (em || 0) / 60) - (sh + (sm || 0) / 60)) * 52, 34);
+        }
+      }
+      html += `<div class="timeline-event-card ${ev.type}" 
+                    style="top:${top}px;height:${height}px;padding:6px 12px;" 
+                    data-event-id="${ev.id}">
+        <div style="font-weight:700;font-size:0.85rem">${ev.title}</div>
+        <div>⏰ ${ev.startTime ? ev.startTime + (ev.endTime ? ' – ' + ev.endTime : '') : 'ตลอดวัน'} | 📍 ${ev.location || 'ไม่ระบุสถานที่'} | 👤 ${this.getUserName(ev.assignee)}</div>
+      </div>`;
+    });
+
+    html += `</div></div></div></div>`;
+    wrap.innerHTML = html;
+  },
+
+  // ---------- EVENT DETAIL POPUP ----------
+  showEventDetail(id, el) {
+    document.querySelectorAll('.detail-popup').forEach(p => p.remove());
+    const ev = this.events.find(e => e.id === id);
+    if (!ev) return;
+
+    const u = this.currentUser;
+    let canManage = false;
+    if (u.role === 'admin') canManage = true;
+    else if (u.role === 'head') {
+      const deptUsers = this.users.filter(x => x.department === u.department).map(x => x.email);
+      canManage = (deptUsers.indexOf(ev.assignee) !== -1 || ev.assignee === u.email);
+    } else {
+      canManage = (ev.assignee === u.email);
+    }
+
+    const rect = el.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.className = 'detail-popup';
+    popup.style.top  = Math.min(rect.bottom + 8, window.innerHeight - 380) + 'px';
+    popup.style.left = Math.min(Math.max(rect.left - 50, 10), window.innerWidth - 350) + 'px';
+
+    popup.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="detail-tag ${ev.type}">${this.getTypeLabel(ev.type)}</span>
+        <button class="close-btn" onclick="this.closest('.detail-popup').remove()">✕</button>
+      </div>
+      <div class="detail-title">${ev.title}</div>
+      <div class="detail-meta-row">
+        <span class="detail-meta-icon">📅</span>
+        <span>${this.formatThaiDate(ev.start)}${ev.end && ev.end !== ev.start ? ' – ' + this.formatThaiDate(ev.end) : ''}</span>
+      </div>
+      ${ev.startTime ? `<div class="detail-meta-row"><span class="detail-meta-icon">⏰</span><span>${ev.startTime}${ev.endTime ? ' – ' + ev.endTime + ' น.' : ' น.'}</span></div>` : ''}
+      ${ev.location ? `<div class="detail-meta-row"><span class="detail-meta-icon">📍</span><span>${ev.location}</span></div>` : ''}
+      <div class="detail-meta-row">
+        <span class="detail-meta-icon">👤</span>
+        <span><strong>${this.getUserName(ev.assignee)}</strong> (${ev.assignee})</span>
+      </div>
+      ${ev.detail ? `<div class="detail-meta-row" style="background:var(--surface2);padding:6px;border-radius:6px;margin-top:6px"><span class="detail-meta-icon">📝</span><span>${ev.detail}</span></div>` : ''}
+
+      <div style="font-size:0.75rem;font-weight:700;color:var(--text2);margin-top:10px">เปลี่ยนสถานะทันที:</div>
+      <div class="quick-status-bar">
+        <button class="status-pill-btn todo${ev.status === 'todo' ? ' active' : ''}" data-status="todo" data-id="${ev.id}">รอดำเนินการ</button>
+        <button class="status-pill-btn doing${ev.status === 'doing' ? ' active' : ''}" data-status="doing" data-id="${ev.id}">กำลังทำ</button>
+        <button class="status-pill-btn done${ev.status === 'done' ? ' active' : ''}" data-status="done" data-id="${ev.id}">เสร็จแล้ว</button>
+      </div>
+
+      ${canManage ? `
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary btn-sm" id="btn-edit-popup" style="flex:1">✏️ แก้ไข</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-popup" style="flex:1">🗑️ ลบ</button>
+      </div>` : `
+      <div style="font-size:0.72rem;color:var(--text3);text-align:center;margin-top:8px">เฉพาะผู้รับผิดชอบหรือหัวหน้าแผนกจึงจะแก้ไข/ลบงานนี้ได้</div>`}
+    `;
+
+    document.body.appendChild(popup);
+
+    // Event listeners inside popup
+    popup.querySelectorAll('.status-pill-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        const st = e.currentTarget.dataset.status;
+        this.changeStatusInstant(id, st);
+        popup.remove();
+      });
+    });
+
+    const editBtn = popup.querySelector('#btn-edit-popup');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        popup.remove();
+        this.openEventModal(null, ev);
+      });
+    }
+
+    const delBtn = popup.querySelector('#btn-delete-popup');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        popup.remove();
+        this.deleteEvent(ev.id);
+      });
+    }
+
+    setTimeout(() => {
+      const clickHandler = (e) => {
+        if (!popup.contains(e.target)) {
+          popup.remove();
+          document.removeEventListener('click', clickHandler);
+        }
+      };
+      document.addEventListener('click', clickHandler);
+    }, 100);
+  },
+
+  // ---------- EVENT MODAL ----------
+  openEventModal(dateStr, ev, timeStr = '') {
+    const isEdit = !!ev;
+    const u = this.currentUser;
+
+    if (isEdit) {
+      let canManage = false;
+      if (u.role === 'admin') canManage = true;
+      else if (u.role === 'head') {
+        const deptUsers = this.users.filter(x => x.department === u.department).map(x => x.email);
+        canManage = (deptUsers.indexOf(ev.assignee) !== -1 || ev.assignee === u.email);
+      } else {
+        canManage = (ev.assignee === u.email);
+      }
+      if (!canManage) {
+        this.showToast('คุณไม่มีสิทธิ์แก้ไขงานนี้', 'error');
+        return;
+      }
+    }
+
+    const defaultStart = isEdit ? ev.start : (dateStr || this.toYMD(new Date()));
+    const defaultEnd   = isEdit ? (ev.end || ev.start) : defaultStart;
+    const defaultAssignee = isEdit ? ev.assignee : u.email;
+
+    const userOptions = this.users.map(usr =>
+      `<option value="${usr.email}" ${defaultAssignee === usr.email ? 'selected' : ''}>${usr.name} (${usr.department || 'ทั่วไป'})</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'event-modal';
+    modal.innerHTML = `
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">${isEdit ? '✏️ แก้ไขงาน' : '➕ เพิ่มงานใหม่'}</div>
+          <button class="close-btn" id="modal-close-btn">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">ชื่องาน / รายการปฏิบัติงาน <span style="color:red">*</span></label>
+            <input class="form-control" id="ev-title" value="${isEdit ? ev.title : ''}" placeholder="ระบุชื่องาน">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">ประเภทงาน</label>
+              <select class="form-control" id="ev-type">
+                <option value="teach" ${(ev && ev.type==='teach') ? 'selected' : ''}>🟢 สอน/อบรม (teach)</option>
+                <option value="meet"  ${(ev && ev.type==='meet')  ? 'selected' : ''}>🔵 ประชุม (meet)</option>
+                <option value="proj"  ${(ev && ev.type==='proj')  ? 'selected' : ''}>🟠 โครงการ (proj)</option>
+                <option value="hol"   ${(ev && ev.type==='hol')   ? 'selected' : ''}>🔴 วันหยุด (hol)</option>
+                <option value="other" ${(!ev || ev.type==='other')? 'selected' : ''}>🟣 อื่นๆ (other)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">สถานะงาน</label>
+              <select class="form-control" id="ev-status">
+                <option value="todo"  ${(!ev || ev.status==='todo')  ? 'selected' : ''}>รอดำเนินการ (todo)</option>
+                <option value="doing" ${(ev && ev.status==='doing')  ? 'selected' : ''}>กำลังดำเนินการ (doing)</option>
+                <option value="done"  ${(ev && ev.status==='done')   ? 'selected' : ''}>เสร็จแล้ว (done)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ผู้รับผิดชอบ</label>
+            <select class="form-control" id="ev-assignee">${userOptions}</select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">วันเริ่มต้น <span style="color:red">*</span></label>
+              <input class="form-control" type="date" id="ev-start" value="${defaultStart}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">วันสิ้นสุด</label>
+              <input class="form-control" type="date" id="ev-end" value="${defaultEnd}">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">เวลาเริ่ม</label>
+              <input class="form-control" type="time" id="ev-startTime" value="${isEdit ? (ev.startTime || '') : timeStr}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">เวลาสิ้นสุด</label>
+              <input class="form-control" type="time" id="ev-endTime" value="${isEdit ? (ev.endTime || '') : ''}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">สถานที่</label>
+            <input class="form-control" id="ev-location" value="${isEdit ? (ev.location || '') : ''}" placeholder="เช่น ห้องประชุม 1, อาคาร 2">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">รายละเอียด</label>
+            <textarea class="form-control" id="ev-detail" placeholder="รายละเอียดวัตถุประสงค์งาน...">${isEdit ? (ev.detail || '') : ''}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          ${isEdit ? `<button class="btn btn-danger" id="modal-delete-btn" style="margin-right:auto">🗑️ ลบงาน</button>` : ''}
+          <button class="btn btn-secondary" id="modal-cancel-btn">ยกเลิก</button>
+          <button class="btn btn-primary" id="modal-save-btn">💾 บันทึก</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#modal-close-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('#modal-cancel-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('#modal-save-btn').addEventListener('click', () => this.saveEvent(isEdit ? ev.id : null));
+
+    if (isEdit) {
+      modal.querySelector('#modal-delete-btn').addEventListener('click', () => this.deleteEvent(ev.id));
+    }
+
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  },
+
+  closeModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (el) el.remove();
+  },
+
+  // ---------- NOTIFICATIONS ----------
+  checkNotifications() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d3 = new Date(today); d3.setDate(d3.getDate() + 3);
+    const todayStr = this.toYMD(today);
+    const d3Str    = this.toYMD(d3);
+
+    const u = this.currentUser;
+    const myEvents = (u && u.role === 'staff')
+      ? this.events.filter(e => e.assignee === u.email)
+      : this.events;
+
+    this._notifications = myEvents.filter(e => {
+      const evEnd = e.end || e.start;
+      return e.status !== 'done' && evEnd >= todayStr && evEnd <= d3Str;
+    });
+
+    const badge = document.getElementById('notif-badge');
+    if (this._notifications.length > 0) {
+      badge.textContent = this._notifications.length;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  },
+
+  toggleNotifications() {
+    const dd = document.getElementById('notif-dropdown');
+    if (dd.style.display === 'none' || !dd.style.display) {
+      this.renderNotifications();
+      dd.style.display = 'block';
+      setTimeout(() => {
+        const handler = (e) => {
+          if (!dd.contains(e.target) && e.target.id !== 'notif-btn') {
+            dd.style.display = 'none';
+            document.removeEventListener('click', handler);
+          }
+        };
+        document.addEventListener('click', handler);
+      }, 100);
+    } else {
+      dd.style.display = 'none';
+    }
+  },
+
+  renderNotifications() {
+    const dd = document.getElementById('notif-dropdown');
+    const notifs = this._notifications || [];
+
+    let html = `<div class="notif-header">🔔 แจ้งเตือนงานใกล้ถึงกำหนด (${notifs.length})</div>`;
+    if (notifs.length === 0) {
+      html += `<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.85rem">ไม่มีงานที่ใกล้ครบกำหนดใน 3 วัน</div>`;
+    } else {
+      notifs.forEach(ev => {
+        html += `<div class="notif-item" data-notif-id="${ev.id}">
+          <div class="notif-title">${ev.title}</div>
+          <div class="notif-time">⏳ ครบกำหนด: ${this.formatThaiDate(ev.end || ev.start)} | ผู้รับผิดชอบ: ${this.getUserName(ev.assignee)}</div>
+        </div>`;
+      });
+    }
+    dd.innerHTML = html;
+
+    dd.querySelectorAll('.notif-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.notifId;
+        const ev = this.events.find(x => x.id === id);
+        dd.style.display = 'none';
+        if (ev) this.openEventModal(null, ev);
+      });
+    });
+  },
+
+  // ---------- DASHBOARD ----------
+  renderDashboard() {
+    const today = this.toYMD(new Date());
+    const d7 = new Date(); d7.setDate(d7.getDate() + 7);
+    const d7Str = this.toYMD(d7);
+
+    const events = this.events;
+    const total   = events.length;
+    const todo    = events.filter(e => e.status === 'todo').length;
+    const doing   = events.filter(e => e.status === 'doing').length;
+    const done    = events.filter(e => e.status === 'done').length;
+    const overdue = events.filter(e => e.status !== 'done' && (e.end || e.start) < today).length;
+
+    const userRows = this.users.map(u => {
+      const ue = events.filter(e => e.assignee === u.email);
+      return {
+        ...u,
+        todo:  ue.filter(e => e.status === 'todo').length,
+        doing: ue.filter(e => e.status === 'doing').length,
+        done:  ue.filter(e => e.status === 'done').length,
+        total: ue.length
+      };
+    });
+
+    const upcoming = events.filter(e => {
+      const end = e.end || e.start;
+      return e.status !== 'done' && end >= today && end <= d7Str;
+    }).sort((a,b) => (a.end||a.start) < (b.end||b.start) ? -1 : 1);
+
+    const wrap = document.getElementById('page-dashboard');
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:1.3rem;font-weight:800;color:var(--text)">📊 แดชบอร์ดสรุปการปฏิบัติงาน</h2>
+          <p style="font-size:0.85rem;color:var(--text2)">ข้อมูลซิงก์สดจากเซิร์ฟเวอร์ทุกเครื่อง (Node.js + SSE)</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          ${(this.currentUser.role === 'admin') ? `<button class="btn btn-secondary btn-sm" id="btn-import-dash">📥 นำเข้า CSV</button>` : ''}
+          <button class="btn btn-secondary btn-sm" id="btn-export-excel">📤 ส่งออก CSV</button>
+          <button class="btn btn-primary btn-sm" id="btn-export-pdf">🖨️ ส่งออก PDF / พิมพ์</button>
+        </div>
+      </div>
+
+      <div class="dashboard-cards">
+        <div class="dash-card"><div class="dash-num">${total}</div><div class="dash-label">งานทั้งหมด</div></div>
+        <div class="dash-card c-todo"><div class="dash-num">${todo}</div><div class="dash-label">รอดำเนินการ</div></div>
+        <div class="dash-card c-doing"><div class="dash-num">${doing}</div><div class="dash-label">กำลังดำเนินการ</div></div>
+        <div class="dash-card c-done"><div class="dash-num">${done}</div><div class="dash-label">เสร็จสิ้นแล้ว</div></div>
+        <div class="dash-card c-overdue"><div class="dash-num">${overdue}</div><div class="dash-label">เกินกำหนดส่ง</div></div>
+      </div>
+
+      <div class="dash-section">
+        <div class="dash-section-title">👥 สรุปงานตามผู้รับผิดชอบและแผนก</div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ชื่อผู้รับผิดชอบ</th>
+                <th>แผนก</th>
+                <th>สิทธิ์</th>
+                <th>รอดำเนินการ</th>
+                <th>กำลังดำเนินการ</th>
+                <th>เสร็จแล้ว</th>
+                <th>รวมงาน</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${userRows.map(u => `<tr>
+                <td><strong>${u.name}</strong><br><small style="color:var(--text3)">${u.email}</small></td>
+                <td>${u.department || '-'}</td>
+                <td><span class="chip ${u.role}">${this.getRoleLabel(u.role)}</span></td>
+                <td><span class="chip todo">${u.todo}</span></td>
+                <td><span class="chip doing">${u.doing}</span></td>
+                <td><span class="chip done">${u.done}</span></td>
+                <td><strong>${u.total}</strong></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dash-section">
+        <div class="dash-section-title">⏰ งานที่ใกล้ถึงกำหนด (ภายใน 7 วันข้างหน้า)</div>
+        ${upcoming.length === 0 ? '<p style="color:var(--text3);font-size:0.85rem">ไม่มีงานที่ใกล้ถึงกำหนดในสัปดาห์นี้</p>' : `
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ชื่องาน</th>
+                <th>ประเภท</th>
+                <th>ผู้รับผิดชอบ</th>
+                <th>กำหนดส่ง/สิ้นสุด</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${upcoming.map(ev => `<tr>
+                <td><strong>${ev.title}</strong>${ev.location ? '<br><small style="color:var(--text3)">📍 ' + ev.location + '</small>' : ''}</td>
+                <td><span class="chip ${ev.type}">${this.getTypeLabel(ev.type)}</span></td>
+                <td>${this.getUserName(ev.assignee)}</td>
+                <td>${this.formatThaiDate(ev.end || ev.start)}</td>
+                <td><span class="chip ${ev.status}">${this.getStatusLabel(ev.status)}</span></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`}
+      </div>
+    `;
+
+    const btnImp = wrap.querySelector('#btn-import-dash');
+    if (btnImp) btnImp.addEventListener('click', () => this.triggerImportCSV());
+
+    wrap.querySelector('#btn-export-excel').addEventListener('click', () => this.exportCSV());
+    wrap.querySelector('#btn-export-pdf').addEventListener('click', () => window.print());
+  },
+
+  exportExcel() {
+    const rows = [
+      ['ID', 'ชื่องาน', 'ประเภท', 'สถานะ', 'อีเมลผู้รับผิดชอบ', 'ชื่อผู้รับผิดชอบ', 'วันเริ่มต้น', 'วันสิ้นสุด', 'เวลาเริ่ม', 'เวลาสิ้นสุด', 'สถานที่', 'รายละเอียด', 'อัปเดตล่าสุด']
+    ];
+
+    this.events.forEach(ev => {
+      rows.push([
+        ev.id,
+        ev.title,
+        this.getTypeLabel(ev.type),
+        this.getStatusLabel(ev.status),
+        ev.assignee,
+        this.getUserName(ev.assignee),
+        ev.start,
+        ev.end || ev.start,
+        ev.startTime || '',
+        ev.endTime || '',
+        ev.location || '',
+        ev.detail || '',
+        ev.updatedAt || ''
+      ]);
+    });
+
+    const csvContent = rows.map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `ปฏิทินการปฏิบัติงาน_${this.toYMD(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this.showToast('ส่งออกไฟล์ Excel (CSV) สำเร็จ', 'success');
+  },
+
+  // ---------- USER MANAGEMENT (ADMIN) ----------
+  renderUsers() {
+    if (this.currentUser.role !== 'admin') {
+      document.getElementById('page-users').innerHTML = '<div style="padding:20px;color:var(--text2)">คุณไม่มีสิทธิ์เข้าถึงส่วนนี้ (เฉพาะ Admin)</div>';
+      return;
+    }
+
+    const wrap = document.getElementById('page-users');
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:1.2rem;font-weight:800;color:var(--text)">👥 จัดการรายชื่อผู้ใช้</h2>
+          <p style="font-size:0.85rem;color:var(--text2)">กำหนดสิทธิ์ Admin / Head / Staff</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-user">➕ เพิ่มผู้ใช้</button>
+      </div>
+
+      <div class="dash-section" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>อีเมล Google</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th>แผนก/ฝ่าย</th>
+              <th>ระดับสิทธิ์</th>
+              <th style="text-align:right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.users.map(u => `<tr>
+              <td><strong>${u.email}</strong></td>
+              <td>${u.name}</td>
+              <td>${u.department || '-'}</td>
+              <td><span class="chip ${u.role}">${this.getRoleLabel(u.role)}</span></td>
+              <td style="text-align:right">
+                <button class="btn btn-secondary btn-sm btn-edit-user" data-email="${u.email}">✏️ แก้ไข</button>
+                <button class="btn btn-danger btn-sm btn-del-user" data-email="${u.email}">🗑️ ลบ</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    wrap.querySelector('#btn-add-user').addEventListener('click', () => this.openUserModal(null));
+    wrap.querySelectorAll('.btn-edit-user').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const u = this.users.find(x => x.email === e.currentTarget.dataset.email);
+        this.openUserModal(u);
+      });
+    });
+    wrap.querySelectorAll('.btn-del-user').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.deleteUser(e.currentTarget.dataset.email);
+      });
+    });
+  },
+
+  openUserModal(user) {
+    const isEdit = !!user;
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'user-modal';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <div class="modal-title">${isEdit ? '✏️ แก้ไขข้อมูลผู้ใช้' : '➕ เพิ่มผู้ใช้ใหม่'}</div>
+          <button class="close-btn" id="user-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">อีเมล Google Account <span style="color:red">*</span></label>
+            <input class="form-control" id="u-email" value="${isEdit ? user.email : ''}" ${isEdit ? 'readonly' : ''} placeholder="user@school.ac.th">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อ-นามสกุล <span style="color:red">*</span></label>
+            <input class="form-control" id="u-name" value="${isEdit ? user.name : ''}" placeholder="ชื่อและนามสกุล">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">แผนก / ฝ่าย</label>
+              <input class="form-control" id="u-dept" value="${isEdit ? (user.department || '') : ''}" placeholder="เช่น IT, HR">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ระดับสิทธิ์ (Role)</label>
+              <select class="form-control" id="u-role">
+                <option value="staff" ${isEdit && user.role === 'staff' ? 'selected' : ''}>เจ้าหน้าที่ (staff)</option>
+                <option value="head"  ${isEdit && user.role === 'head'  ? 'selected' : ''}>หัวหน้าแผนก (head)</option>
+                <option value="admin" ${isEdit && user.role === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ (admin)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="user-modal-cancel">ยกเลิก</button>
+          <button class="btn btn-primary" id="user-modal-save">💾 บันทึก</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#user-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#user-modal-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#user-modal-save').addEventListener('click', () => this.saveUser(isEdit ? user.email : null));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  },
+
+  // ---------- HOLIDAY MANAGEMENT (ADMIN) ----------
+  renderHolidays() {
+    if (this.currentUser.role !== 'admin') {
+      document.getElementById('page-holidays').innerHTML = '<div style="padding:20px;color:var(--text2)">คุณไม่มีสิทธิ์เข้าถึงส่วนนี้ (เฉพาะ Admin)</div>';
+      return;
+    }
+
+    const sorted = [...this.holidays].sort((a,b) => a.date < b.date ? -1 : 1);
+    const wrap = document.getElementById('page-holidays');
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:1.2rem;font-weight:800;color:var(--text)">🎌 จัดการวันหยุดนักขัตฤกษ์</h2>
+          <p style="font-size:0.85rem;color:var(--text2)">วันหยุดจะถูกไฮไลต์บนปฏิทินของทุกเครื่อง</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-hol">➕ เพิ่มวันหยุด</button>
+      </div>
+
+      <div class="dash-section" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>วันที่ (พ.ศ.)</th>
+              <th>ชื่อวันหยุด</th>
+              <th>ประเภท</th>
+              <th style="text-align:right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(h => `<tr>
+              <td><strong>${this.formatThaiDate(h.date)}</strong> (${h.date})</td>
+              <td>${h.name}</td>
+              <td><span class="chip hol">${h.type === 'public' ? 'วันหยุดราชการ' : 'วันหยุดองค์กร'}</span></td>
+              <td style="text-align:right">
+                <button class="btn btn-danger btn-sm btn-del-hol" data-date="${h.date}">🗑️ ลบ</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    wrap.querySelector('#btn-add-hol').addEventListener('click', () => this.openHolidayModal());
+    wrap.querySelectorAll('.btn-del-hol').forEach(btn => {
+      btn.addEventListener('click', (e) => this.deleteHoliday(e.currentTarget.dataset.date));
+    });
+  },
+
+  openHolidayModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'hol-modal';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+          <div class="modal-title">➕ เพิ่มวันหยุดใหม่</div>
+          <button class="close-btn" id="hol-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">วันที่ <span style="color:red">*</span></label>
+            <input class="form-control" type="date" id="h-date" value="${this.toYMD(new Date())}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อวันหยุด <span style="color:red">*</span></label>
+            <input class="form-control" id="h-name" placeholder="เช่น วันสถาปนาสถาบัน">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ประเภทวันหยุด</label>
+            <select class="form-control" id="h-type">
+              <option value="public">วันหยุดราชการ / นักขัตฤกษ์</option>
+              <option value="other">วันหยุดองค์กร / ภายใน</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="hol-modal-cancel">ยกเลิก</button>
+          <button class="btn btn-primary" id="hol-modal-save">💾 บันทึก</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#hol-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#hol-modal-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#hol-modal-save').addEventListener('click', () => this.saveHoliday());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  },
+
+  // ---------- BIND DOM EVENTS ----------
+  bindDOMEvents() {
+    // Login Submit
+    const btnLogin = document.getElementById('btn-login-submit');
+    if (btnLogin) {
+      btnLogin.addEventListener('click', () => this.loginSubmit());
+    }
+    const userSel = document.getElementById('login-user-select');
+    if (userSel) {
+      userSel.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.loginSubmit();
+      });
+    }
+
+    // CSV Nav Items
+    const navExp = document.getElementById('nav-export-csv');
+    if (navExp) navExp.addEventListener('click', () => this.exportCSV());
+    const navImp = document.getElementById('nav-import-csv');
+    if (navImp) navImp.addEventListener('click', () => this.triggerImportCSV());
+    const csvFileInput = document.getElementById('csv-file-input');
+    if (csvFileInput) {
+      csvFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handleCSVFileSelect(e.target.files[0]);
+        }
+      });
+    }
+
+    // Sidebar & View
+    document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    document.getElementById('dark-btn').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('app_theme', next);
+      document.getElementById('dark-btn').textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', () => this.logout());
+    document.getElementById('notif-btn').addEventListener('click', () => this.toggleNotifications());
+
+    // Navigation items
+    document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        this.navigate(e.currentTarget.dataset.nav);
+      });
+    });
+
+
+
+    // View tabs
+    document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        this.currentView = e.currentTarget.dataset.view;
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t === e.currentTarget));
+        this.renderCalendar();
+      });
+    });
+
+    // Calendar buttons
+    document.getElementById('btn-today').addEventListener('click', () => {
+      this.currentDate = new Date();
+      this.renderCalendar();
+    });
+    document.getElementById('btn-nav-prev').addEventListener('click', () => {
+      const d = this.currentDate;
+      if (this.currentView === 'month')     d.setMonth(d.getMonth() - 1);
+      else if (this.currentView === 'week') d.setDate(d.getDate() - 7);
+      else                                  d.setDate(d.getDate() - 1);
+      this.renderCalendar();
+    });
+    document.getElementById('btn-nav-next').addEventListener('click', () => {
+      const d = this.currentDate;
+      if (this.currentView === 'month')     d.setMonth(d.getMonth() + 1);
+      else if (this.currentView === 'week') d.setDate(d.getDate() + 7);
+      else                                  d.setDate(d.getDate() + 1);
+      this.renderCalendar();
+    });
+
+    // Filters
+    ['f-assignee', 'f-type', 'f-status'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        this.filters.assignee = document.getElementById('f-assignee').value;
+        this.filters.type     = document.getElementById('f-type').value;
+        this.filters.status   = document.getElementById('f-status').value;
+        this.renderCalendar();
+      });
+    });
+
+    // Add event button
+    document.getElementById('btn-open-create-event').addEventListener('click', () => {
+      this.openEventModal(null, null);
+    });
+
+    // Event delegation on page-calendar (Month, Week, Day click handlers)
+    document.getElementById('page-calendar').addEventListener('click', (e) => {
+      const pill = e.target.closest('.event-pill, .timeline-event-card');
+      if (pill && pill.dataset.eventId) {
+        e.stopPropagation();
+        this.showEventDetail(pill.dataset.eventId, pill);
+        return;
+      }
+      const dayCell = e.target.closest('.month-day[data-date]');
+      if (dayCell && !e.target.closest('.more-events')) {
+        this.openEventModal(dayCell.dataset.date, null);
+        return;
+      }
+      const slot = e.target.closest('.timeline-hour-slot[data-slot-date]');
+      if (slot) {
+        this.openEventModal(slot.dataset.slotDate, null, slot.dataset.slotTime || '');
+      }
+    });
+  },
+
+  // ---------- UI UTILITIES ----------
+  showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icon = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' }[type] || 'ℹ️';
+    toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(10px)';
+      toast.style.transition = 'all 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 3800);
+  },
+
+  showLoading(show, text = 'กำลังโหลดข้อมูล...') {
+    const overlay = document.getElementById('loading-overlay');
+    const label = document.getElementById('loading-text');
+    if (label) label.textContent = text;
+    overlay.classList.toggle('show', show);
+  }
+};
+
+// Start application
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
+</body>
+</html>

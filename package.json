@@ -1,0 +1,12 @@
+{
+  "name": "work-calendar-system",
+  "version": "2.0.0",
+  "description": "ระบบปฏิทินการปฏิบัติงาน - Node.js Server with Real-time SSE",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
